@@ -144,3 +144,33 @@ class AdminAuth:
                 if record not in history:
                     history.append(record)
             self.save()
+
+    def fork_request(self, request_id, **changes):
+        """Persist admission before the non-idempotent OpenCode fork call."""
+        with self.lock:
+            requests = self.data.setdefault("fork_requests", {})
+            if changes:
+                requests.setdefault(request_id, {}).update(changes)
+                self.save()
+            value = requests.get(request_id)
+            return dict(value) if value else None
+
+    def remember_branch(self, conversation, source_id, session_id):
+        with self.lock:
+            history = self.data.setdefault("session_history", [])
+            for id in (source_id, session_id):
+                record = next(
+                    (
+                        item
+                        for item in history
+                        if item["id"] == id and item["conversation"] == conversation
+                    ),
+                    None,
+                )
+                if record is None:
+                    record = {"id": id, "conversation": conversation}
+                    history.append(record)
+                record["reusable"] = True
+                if id == session_id:
+                    record["fork_of"] = source_id
+            self.save()

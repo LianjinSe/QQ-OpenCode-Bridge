@@ -549,7 +549,12 @@ class DashboardData:
             for conversation in conversations:
                 mappings.setdefault(conversation, None)
             for item in self.history():
-                entries.setdefault(item["id"], item | {"tasks": 0, "updated": 0, "created": 0})
+                entry = entries.setdefault(
+                    item["id"], item | {"tasks": 0, "updated": 0, "created": 0}
+                )
+                for key in ("fork_of", "reusable"):
+                    if key in item:
+                        entry[key] = item[key]
             result = []
             for conversation, session_id in mappings.items():
                 parts = conversation.split(":")
@@ -622,6 +627,8 @@ class DashboardData:
                                 archived=archived == "true",
                                 updated=stamp.get("updated", item.get("updated", 0) * 1000) / 1000,
                                 created=stamp.get("created", item.get("created", 0) * 1000) / 1000,
+                                fork_of=(info.get("fork") or {}).get("sessionID")
+                                or item.get("fork_of"),
                             )
                             entries[info["id"]] = item
                         cursor = page.get("cursor", {}).get("next")
@@ -641,9 +648,29 @@ class DashboardData:
             item["current"] = current.get(item["conversation"]) == item["id"]
             item["isolated"] = bool(item.get("isolated"))
             item["title"] = item.get("title") or item["id"]
-            item["eligible"] = not item["isolated"] and (
-                ":private:" in item["conversation"] or item["current"] or item.get("tasks", 0) > 0
+
+        def eligible(session_id, visited):
+            if session_id in visited or len(visited) >= 50:
+                return False
+            item = entries[session_id]
+            if item["isolated"]:
+                return False
+            if source_id := item.get("fork_of"):
+                source = entries.get(source_id)
+                if source is None or source["conversation"] != item["conversation"]:
+                    return False
+                reusable = eligible(source_id, visited | {session_id})
+                item["isolated"] = source["isolated"]
+                return reusable
+            return bool(
+                ":private:" in item["conversation"]
+                or item["current"]
+                or item.get("tasks", 0) > 0
+                or item.get("reusable")
             )
+
+        for item in entries.values():
+            item["eligible"] = eligible(item["id"], set())
         # Include bridge-labelled roots even if no surviving job references them.
         known = {mapping["conversation"] for mapping in mappings}
         for item in entries.values():

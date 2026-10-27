@@ -32,6 +32,9 @@ class ConsoleOpenCode:
         self.contexts = {}
         self.inboxes = {}
         self.compactions = {}
+        self.workdir = ""
+        self.forks = []
+        self.mutations = []
         self.models = [{"id": "test-model", "providerID": "test", "limit": {"context": 1000}}]
 
     def add(self, session_id, conversation=None, *, parent=None, archived=False):
@@ -42,6 +45,7 @@ class ConsoleOpenCode:
             "metadata": {"qq_bridge_context": conversation} if conversation else {},
             "archived": archived,
             "time": {"created": 1000, "updated": 2000},
+            "location": {"directory": str(self.workdir)},
         }
         self.messages[session_id] = []
 
@@ -66,6 +70,23 @@ class ConsoleOpenCode:
         return False
 
     async def request(self, method, path, *, params=None, unwrap=True, body=None):
+        if method == "POST" and path.endswith("/fork"):
+            source_id = path.split("/")[3]
+            session_id = f"ses_fork_{len(self.forks) + 1}"
+            self.sessions[session_id] = json.loads(json.dumps(self.sessions[source_id]))
+            self.sessions[session_id].update(
+                id=session_id, fork={"sessionID": source_id}, parentID=None, archived=False
+            )
+            self.messages[session_id] = json.loads(json.dumps(self.messages[source_id]))
+            self.forks.append((source_id, session_id))
+            return self.sessions[session_id]
+        if method == "PATCH":
+            self.mutations.append((method, path, body))
+            self.sessions[path.split("/")[3]].update(body)
+            return self.sessions[path.split("/")[3]]
+        if method == "DELETE" and "/instructions/entries/" in path:
+            self.mutations.append((method, path, None))
+            return None
         if method == "POST" and path.endswith("/compact"):
             session_id = path.split("/")[3]
             self.compactions.setdefault(
@@ -123,6 +144,7 @@ async def console(tmp_path):
     bridge = Bridge(cfg, store, bot, opencode)
     dashboard = bridge.webui
     fake = ConsoleOpenCode()
+    fake.workdir = cfg.workdir
     dashboard.data.client = lambda: fake
     restarted = asyncio.Event()
 

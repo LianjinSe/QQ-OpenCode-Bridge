@@ -297,6 +297,9 @@
 #qqbot-console .workspace[data-page="conversations"] .conversation-list{flex:1;min-height:0;max-height:none;overscroll-behavior-y:contain}
 #qqbot-console .chat-feed{display:flex;flex-direction:column;height:100%;min-height:0;position:relative}
 #qqbot-console .feed-toolbar{flex:none}
+#qqbot-console .branch-toolbar{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin:0 0 12px}
+#qqbot-console .branch-actions{display:flex;gap:7px;flex-wrap:wrap}
+@media(pointer:coarse){#qqbot-console .branch-actions .button{min-height:44px;touch-action:manipulation;user-select:none;-webkit-user-select:none}}
 #qqbot-console .session-context{padding:12px 14px;margin:0 0 14px;border:1px solid var(--glass-edge);border-radius:12px;background:var(--glass-reading);min-width:0}
 #qqbot-console .context-heading,#qqbot-console .context-summary{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
 #qqbot-console .context-heading strong{font-size:12px;font-weight:500}

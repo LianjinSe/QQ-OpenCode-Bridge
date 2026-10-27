@@ -46,6 +46,7 @@ Store 语义接口访问数据。完成任务与出站入队保持同一事务�
 - QQ 只转发公开正文。WebUI 读取不得创建模型任务、迁移状态库或自动切换会话映射。
 - 完成回复和附件交付后不自动戳发起人；旧队列中 ready 的完成戳一戳在启动时标为 blocked，已尝试回执保留，不自动补发。
 - WebUI 上下文按最近一次有效调用估算，包含缓存、输出和思考，不使用会话累计消耗；压缩后没有新用量时显示等待。手动压缩仅管理员操作，校验 CSRF、桥接会话归属、未完成任务、执行树及待处理请求；请求编号幂等，区分受理、执行结果和未确认，不自动重试。
+- WebUI 会话页可从当前映射创建完整历史分支并切换，也可切回同一聊天的原会话或其他可复用分支。使用 OpenCode 原生 fork，保留原历史及任务归属，不复制文件目录；群分支继承来源隔离限制，新分支清除旧任务身份并恢复相应权限，之后仍按真实 QQ 任务同步身份。创建前后检查未完成任务、执行树、inbox 与旧映射；中途有新任务或映射变化时只保留分支、不强行切换。管理台认证档案保存最小分支请求回执及来源关系，非幂等 fork 在结果未确认或重启后不自动重发，同一请求重放不撤销用户后续的映射切换。
 - 新增后端状态在相应 WebUI 页面反映。静态样式和交互限定于 `#qqbot-console`。
 
 ## 验证与发布
@@ -53,7 +54,7 @@ Store 语义接口访问数据。完成任务与出站入队保持同一事务�
 Python 3.12+，现有 `.venv`；按风险使用最小相关检查，避免重复全量或真实 QQ 写入测试。
 权限看 `test_group_permissions.py` / `test_superadmin.py`；交付与恢复看 `test_delivery*`、
 `test_progress.py`、`test_recovery.py`；记忆看 `test_memory*`；知识库看 `test_knowledge*`；
-原生 QQ 看 `test_napcat*`；管理台看 `test_webui.py` / `test_webui_context.py`；部署路径看 `test_portability.py`。
+原生 QQ 看 `test_napcat*`；管理台看 `test_webui.py` / `test_webui_context.py` / `test_webui_forks.py`；部署路径看 `test_portability.py`。
 
 ```bash
 .venv/bin/python -m pytest -q tests/test_portability.py tests/test_architecture.py

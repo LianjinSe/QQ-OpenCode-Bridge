@@ -22,6 +22,7 @@ from .webui_auth import COOKIE_NAME, SESSION_SECONDS, AdminAuth
 from .webui_context import ContextConsole
 from .webui_data import UNFINISHED, DashboardData
 from .webui_knowledge import KnowledgeConsole
+from .webui_sessions import SessionConsole
 
 log = logging.getLogger(__name__)
 ASSETS = Path(__file__).with_name("webui_static")
@@ -155,6 +156,7 @@ class AdminDashboard:
         app = web.Application(middlewares=[self.middleware], client_max_size=MAX_UPLOAD + 65536)
         app.add_routes(KnowledgeConsole(self).routes())
         app.add_routes(ContextConsole(self).routes())
+        app.add_routes(SessionConsole(self).routes())
         app.add_routes(
             [
                 web.get("/", self.index, name="index"),
@@ -381,6 +383,9 @@ class AdminDashboard:
                 raise web.HTTPConflict(text="当前映射已有变化，请刷新后重试")
             client = self.data.client()
             active = await client.active()
+            for root in {mapping["session_id"], session_id} - {None}:
+                if await client.inbox(root):
+                    raise web.HTTPConflict(text="原会话或目标会话还有待处理请求，请等待完成后切换")
             for active_id in active:
                 for root in {mapping["session_id"], session_id} - {None}:
                     if await client.belongs_to(active_id, root):

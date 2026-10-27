@@ -9,6 +9,7 @@ const state = {
   queueBefore: null, queueItems: [], queueNext: null, detailJob: null, detailSession: null,
   detailData: null, detailTab: 'run', detailVersion: 0, viewVersion: 0, refreshing: false,
   restarting: null, sessionIndex: null, sessionQuery: '', sidebarCollapsed: loadSidebarPreference(),
+  forkRequests: new Map(),
 };
 const uiRoot = document.getElementById('qqbot-console');
 const $ = (selector, root = uiRoot) => root.querySelector(selector);
@@ -108,6 +109,7 @@ async function api(path, body) {
 function showLogin() {
   conversations.leave(); knowledge.leave();
   sessionContext.clear();
+  state.forkRequests.clear();
   state.auth = null; state.viewVersion++; state.detailVersion++;
   $('#loading').hidden = true; $('#app').hidden = true; $('#login').hidden = false;
   $('#main').replaceChildren(); $('#detail-content').replaceChildren();
@@ -189,7 +191,7 @@ async function memoriesPage() {
   const enabled = await fetchMemories();
   return heading('记忆库', '个人资料、助手的信息、共同经历与日记，按来源和范围查看。') + `${!enabled ? '<div class="notice">当前未启用个人记忆。</div>' : ''}<div class="toolbar"><input class="search" id="memory-search" aria-label="搜索记忆" placeholder="搜索被记住的内容…" value="${esc(state.memoryQuery)}"><select id="memory-subject" aria-label="记忆主体"><option value="">全部主体</option>${Object.entries(subjectNames).map(([key,value]) => `<option value="${key}" ${state.memorySubject === key ? 'selected' : ''}>${value}</option>`).join('')}</select><select id="memory-kind" aria-label="记忆类型"><option value="">全部类型</option>${Object.entries(kindNames).map(([key,value]) => `<option value="${key}" ${state.memoryKind === key ? 'selected' : ''}>${value}</option>`).join('')}</select><span class="count-note" id="memory-count">共 ${number(state.memoryTotal)} 条</span></div><div id="memory-results">${memoryResults()}</div><div id="memory-more">${memoryMore()}</div><p class="intro-note">仅显示当前账号的有效或待保存记忆。已遗忘内容不在此展示；过期的短期状态单独标注。</p>`;
 }
-function auditName(action) { return ({login:'登录管理台',password_changed:'修改账号密码',restart_requested:'请求重启桥接',cancel_requested:'请求取消任务',mapping_switched:'切换会话映射',compaction_requested:'请求压缩会话',compaction_unconfirmed:'压缩请求未确认'})[action] || action; }
+function auditName(action) { return ({login:'登录管理台',password_changed:'修改账号密码',restart_requested:'请求重启桥接',cancel_requested:'请求取消任务',mapping_switched:'切换会话映射',compaction_requested:'请求压缩会话',compaction_unconfirmed:'压缩请求未确认',session_fork_created:'创建会话分支',session_fork_switched:'创建分支并切换',session_fork_unconfirmed:'分支创建结果未确认'})[action] || action; }
 function sessionRows() {
   const query = state.sessionQuery.toLowerCase();
   const items = state.sessionIndex.items.filter(item => `${item.title} ${item.id} ${item.conversation}`.toLowerCase().includes(query));
@@ -204,7 +206,13 @@ async function mappingDialog(conversation) {
   const mapping = state.sessionIndex.mappings.find(item => item.conversation === conversation);
   const candidates = state.sessionIndex.items.filter(item => item.conversation === conversation && item.eligible);
   if (!mapping || !candidates.length) { toast('这个聊天没有可切换的历史会话'); return; }
-  dialog(`<h2 id="action-title">切换会话映射</h2><p>${esc(mapping.title)}。后续新任务将接续所选会话的历史。当前有未完成任务时无法切换；主人群聊独立会话不用于群共享。</p><form id="mapping-form" data-conversation="${esc(conversation)}" data-expected="${esc(mapping.session_id || '')}"><label>目标 OpenCode 会话<select name="session_id" class="search" required>${candidates.map(item => `<option value="${esc(item.id)}" ${item.id === mapping.session_id ? 'selected' : ''}>${esc(item.title)} · ${item.id.slice(-10)}${item.current ? '（当前）' : ''}</option>`).join('')}</select></label><div class="error" id="mapping-error" role="alert"></div><div class="dialog-actions"><button type="button" class="button" data-action="close-action">取消</button><button type="submit" class="primary">确认切换</button></div></form>`);
+  dialog(`<h2 id="action-title">切换会话分支</h2><p>${esc(mapping.title)}。后续新任务将接续所选会话的历史，可切回原会话。当前有未完成任务时无法切换；主人群聊独立会话不用于群共享。</p><form id="mapping-form" data-conversation="${esc(conversation)}" data-view="${esc(state.view)}" data-expected="${esc(mapping.session_id || '')}"><label>目标 OpenCode 会话<select name="session_id" class="search" required>${candidates.map(item => `<option value="${esc(item.id)}" ${item.id === mapping.session_id ? 'selected' : ''}>${esc(item.title)} · ${item.id.slice(-10)}${item.fork_of ? '（分支）' : '（原会话）'}${item.current ? '（当前）' : ''}</option>`).join('')}</select></label><div class="error" id="mapping-error" role="alert"></div><div class="dialog-actions"><button type="button" class="button" data-action="close-action">取消</button><button type="submit" class="primary">确认切换</button></div></form>`);
+}
+function forkDialog(button) {
+  const conversation = button.dataset.conversation, source = button.dataset.id;
+  const key = `${conversation}:${source}`;
+  if (!state.forkRequests.has(key)) state.forkRequests.set(key, crypto.randomUUID());
+  dialog(`<h2 id="action-title">创建分支并切换？</h2><p>复制当前会话的完整历史，之后的新 QQ 任务将接续新分支。原会话保留，可通过“切换分支”返回。文件目录仍由各分支共用。</p><form id="fork-form" data-conversation="${esc(conversation)}" data-source="${esc(source)}" data-request="${esc(state.forkRequests.get(key))}"><label>分支名称（可选）<input name="title" maxlength="120" autocomplete="off" placeholder="例如：另一种方案"></label><div class="error" id="fork-error" role="alert"></div><div class="dialog-actions"><button type="button" class="button" data-action="close-action">取消</button><button type="submit" class="primary">创建并切换</button></div></form>`);
 }
 async function systemPage() {
   const [system,overview] = await Promise.all([api('/system'),loadOverview()]);
@@ -352,6 +360,7 @@ uiRoot.addEventListener('click',async event => {
     else if (action === 'toggle-sidebar') toggleSidebar();
     else if (action === 'account') accountDialog();
     else if (action === 'mapping') await mappingDialog(button.dataset.id);
+    else if (action === 'fork-session') forkDialog(button);
     else if (action === 'logout') { await api('/auth/logout',{}); showLogin(); }
  else if (action === 'queue-mode') { state.queueHistory = !state.queueHistory; await navigate('queue',true); }
     else if (action === 'older-queue') {
@@ -386,7 +395,7 @@ function scheduleMemorySearch() {
 uiRoot.addEventListener('change',event => { if (knowledge.handleChange(event.target)) return; if (event.target.id === 'memory-kind') { state.memoryKind = event.target.value; scheduleMemorySearch(); } else if (event.target.id === 'memory-subject') { state.memorySubject = event.target.value; scheduleMemorySearch(); } });
 uiRoot.addEventListener('submit', event => { void knowledge.handleSubmit(event); });
 uiRoot.addEventListener('submit',async event => {
-  if (!['login-form','account-form','mapping-form'].includes(event.target.id)) return;
+  if (!['login-form','account-form','mapping-form','fork-form'].includes(event.target.id)) return;
   event.preventDefault(); const form = event.target; const button = form.querySelector('[type=submit]'); button.disabled = true;
   try {
     const values = Object.fromEntries(new FormData(form));
@@ -398,14 +407,22 @@ uiRoot.addEventListener('submit',async event => {
       $('#mapping-error').textContent = '';
       if (values.session_id === form.dataset.expected) throw new Error('请选择另一个历史会话');
       await api('/mappings',{conversation:form.dataset.conversation,session_id:values.session_id,expected_current:form.dataset.expected || null,confirm:'switch'});
-      $('#action-dialog').close(); toast('会话映射已切换，原历史保留'); await navigate('sessions',true);
+      $('#action-dialog').close(); toast('会话映射已切换，原历史保留'); await navigate(form.dataset.view || 'sessions',true);
+    } else if (form.id === 'fork-form') {
+      $('#fork-error').textContent = '';
+      const submit = form.querySelector('[type=submit]'); submit.disabled = true;
+      try {
+        const result = await api(`/sessions/${encodeURIComponent(form.dataset.source)}/fork`, {conversation:form.dataset.conversation,expected_current:form.dataset.source,request_id:form.dataset.request,title:values.title || '',confirm:'fork'});
+        state.forkRequests.delete(`${form.dataset.conversation}:${form.dataset.source}`);
+        $('#action-dialog').close(); toast(result.switched ? '分支已创建，后续 QQ 任务将使用新分支' : result.message || '分支已存在，请刷新查看当前映射'); await navigate('conversations',true);
+      } finally { submit.disabled = false; }
     } else {
       $('#account-error').textContent = '';
       if (values.password !== values.repeat) throw new Error('两次输入的新密码不一致');
       const auth = await api('/auth/password',values); authReady(auth); $('#action-dialog').close(); form.reset(); toast('账号已更新，其他登录已失效');
       if (state.view === 'system') await navigate('system',true);
     }
-  } catch(error) { const node = form.id === 'login-form' ? $('#login-error') : form.id === 'mapping-form' ? $('#mapping-error') : $('#account-error'); if (node) node.textContent = error.message; }
+  } catch(error) { const node = form.id === 'login-form' ? $('#login-error') : form.id === 'mapping-form' ? $('#mapping-error') : form.id === 'fork-form' ? $('#fork-error') : $('#account-error'); if (node) node.textContent = error.message; }
   finally { button.disabled = false; }
 });
 async function boot() {
