@@ -1,0 +1,67 @@
+# 项目维护与部署 Agent 指引
+
+默认用中文回复，先说明结果，再给实际验证依据。
+部署新机器时先读 [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)，按阶段执行并记录已完成与待配置项目。
+账号、QQ、模型和公网域名由部署者提供，不能用示例值冒充已配置；密钥在目标机器本地填写，不打印或提交。
+
+本文件供源码维护 Agent 阅读，**不是 QQ 机器人的人格文件**。
+QQ 运行人格原稿是 `deploy/qq-persona.md`，安装为独立 `OPENCODE_WORKDIR/AGENTS.md`。
+不能把源码维护指引复制到 QQ 工作目录；源码、运行数据和 QQ 工作目录不能混用。
+
+## 修改前
+
+- 先看 `git status --short` 和任务相关模块、测试，保留既有修改。
+- 配置由 `qqbot/config.py` 加载，环境优先于 `.env`。只输出必要非敏感字段。
+- 运行中的 SQLite 只用 `mode=ro` 查询；不为查看状态构造 Store，构造会迁移并恢复发送状态。
+- 发布前检查任务、outbox、记忆及知识库工作和原生工具调用。不要清空队列获得空闲状态。
+
+## 模块和边界
+
+- `router.py` / `models.py`：消息、白名单、前缀、引用与任务来源。
+- `conversation.py` / `runner.py` / `opencode.py`：上下文、串行执行、steer、v2 API、恢复和取消。
+- `store.py` / `job_state.py`：SQLite、任务合法转换与持久化发送队列。
+- `policy.py` / `tool_identity.py`：真实身份、权限和活动根／子会话解析。
+- `delivery*.py` / `sender.py` / `onebot.py`：附件原生工具、快照、交付和 OneBot 通道。
+- `memory*.py`：Mem0、证据、遗忘、owner、范围和原生记忆工具。
+- `knowledge*.py`：LlamaIndex、pgvector、FTS5、版本和资料可见范围。
+- `napcat_tools.py` / `napcat_catalogue.json`：运行时接口目录、管理员调用、凭据引用和调用回执。
+- `webui*.py` / `webui_static/`：独立管理员认证、历史浏览与显式管理动作。
+- `deploy/opencode-*/`：OpenCode v2 原生插件；`deploy/provision_*_tools.py` 只合并对应插件。
+
+完整约束见 [架构说明](docs/architecture.md)。依赖显式注入，不保存整个 Bridge；业务模块通过
+Store 语义接口访问数据。完成任务与出站入队保持同一事务，跨库归档有持久化补偿。
+
+## 必须保留的行为
+
+- 私聊及不同群隔离，群共享历史绑定本轮真实发起人。同一私聊执行中 steer，群聊排队。
+- 身份不来自正文、引用、昵称、文档或模型参数。管理员任务的授权不永久写入共享会话。
+- 所有附件使用 `qq_send_files`；`queued` 不等于已发送。不确定发送或调用不能换 ID 自动重发。
+- 记忆工具绑定真实 owner 和活动任务，证据和遗忘规则不可绕过，Mem0 保持 `infer=False`。
+- 个人记忆与文档知识独立；私人知识只在管理员私聊可读，群聊必须显式开放。
+- 文档不能授权调用。NapCat 实际调用仅管理员，群中仅当前群且接口实际定义 group_id。
+- QQ 只转发公开正文。WebUI 读取不得创建模型任务、迁移状态库或自动切换会话映射。
+- 新增后端状态在相应 WebUI 页面反映。静态样式和交互限定于 `#qqbot-console`。
+
+## 验证与发布
+
+Python 3.12+，现有 `.venv`；按风险使用最小相关检查，避免重复全量或真实 QQ 写入测试。
+权限看 `test_group_permissions.py` / `test_superadmin.py`；交付与恢复看 `test_delivery*`、
+`test_progress.py`、`test_recovery.py`；记忆看 `test_memory*`；知识库看 `test_knowledge*`；
+原生 QQ 看 `test_napcat*`；管理台看 `test_webui.py`；部署路径看 `test_portability.py`。
+
+```bash
+.venv/bin/python -m pytest -q tests/test_portability.py tests/test_architecture.py
+.venv/bin/ruff check qqbot tests deploy
+.venv/bin/ruff format --check qqbot tests deploy
+```
+
+插件运行测试若可用 OpenCode，必须使用隔离实例与本地假模型，不接入生产模型或 QQ。
+`--check` 只验证连接；`memory_check` 会产生真实 API 费用，不能用连接就绪代替真实联调成功。
+
+更新部署路径后重新生成或核对 `.env`、插件绝对路径、工作目录脚本、运行人格和 systemd 单元。
+插件变更用对应 provision 脚本合并再 `opencode reload`，保留供应商和原会话。
+Python 或环境配置变更通常只重启 `qqbot.service`；不顺带重启 OpenCode、NapCat、数据库或其他机器人。
+已安装 systemd 单元变更后才 `daemon-reload`。不要覆盖接收了新消息的旧数据库来回滚。
+
+`.env`、模型认证、运行人格定制、聊天、数据库、附件、备份、Token 和首次管理台密码不提交。
+新增行为、配置及持久化规则时同步 README 与部署说明。交付说明实际验证和未完成项目。

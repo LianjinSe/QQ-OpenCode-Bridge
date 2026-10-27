@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,interactive-widget=resizes-content">
+  <meta name="theme-color" content="#edf1f8">
+  <title>助手 · 管理台</title>
+  <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg?v=public1">
+  <link rel="apple-touch-icon" href="/assets/favicon.svg?v=69cf9a0949">
+  <link rel="stylesheet" href="/assets/style.css">
+  <link rel="stylesheet" href="/assets/theme.css">
+  <script type="module" src="/assets/console.js"></script>
+</head>
+<body>
+  <div id="qqbot-console">
+  <div id="loading" class="boot">正在连接管理台…</div>
+  <section id="login" class="login-layout" hidden>
+    <div class="login-story"><div class="brand"><img class="brand-portrait" src="/assets/assistant-avatar.svg?v=public1" alt="" width="40" height="40">助手 <span>CONSOLE</span></div>
+      <div><span class="eyebrow">YOUR ASSISTANT, IN VIEW</span><h1>每一次对话，<br>都有迹可循。</h1><p>会话、任务与记忆，一个入口。<br>了解正在发生什么，也管理接下来的一步。</p></div>
+      <small>QQ / NapCat ↔ OpenCode</small>
+    </div>
+    <div class="login-panel"><form id="login-form" class="login-card">
+      <span class="eyebrow">WELCOME BACK</span><h2>登录管理台</h2><p class="muted">使用你的独立管理账号继续</p>
+      <label>账号<input name="username" autocomplete="username" required maxlength="64" placeholder="请输入账号"></label>
+      <label>密码<input name="password" type="password" autocomplete="current-password" required maxlength="256" placeholder="请输入密码"></label>
+      <p id="login-error" class="error" role="alert"></p><button class="primary login-submit" type="submit">登录 <span data-icon="next" aria-hidden="true"></span></button>
+      <small class="muted">登录状态保留 7 天，可随时退出。</small>
+    </form></div>
+  </section>
+  <div id="app" class="app" hidden>
+    <button class="nav-scrim" id="nav-scrim" data-action="close-menu" aria-label="关闭导航" hidden></button>
+    <aside class="sidebar" id="sidebar"><div class="sidebar-heading"><button class="brand sidebar-brand" data-action="navigate" data-view="overview" aria-label="助手管理台，返回概览"><img class="brand-portrait" src="/assets/assistant-avatar.svg?v=public1" alt="" width="40" height="40"><span class="brand-copy">助手<small>管理控制台</small></span></button><button class="icon-button sidebar-toggle" id="sidebar-toggle" data-action="toggle-sidebar" aria-label="缩窄导航" title="缩窄导航"><span data-icon="collapse"></span></button></div>
+      <div class="nav-label">工作空间</div><nav id="navigation" aria-label="主要导航"></nav>
+      <div class="sidebar-bottom" title="QQ Bridge"><span data-icon="signal"></span><div class="sidebar-bottom-copy">QQ Bridge<small>与每一件事保持连接</small></div></div>
+    </aside>
+    <div class="workspace" id="workspace" data-page="overview"><header class="topbar" id="overview-topbar"><div class="topbar-title"><button class="icon-button mobile-menu" data-action="menu" aria-label="展开导航" aria-controls="sidebar" aria-expanded="false"><span data-icon="menu"></span></button><span class="muted">控制台</span><span class="breadcrumb"><span data-icon="chevron"></span></span><strong id="page-name">概览</strong></div>
+      <div class="topbar-actions"><span class="connection" id="connection" role="status"><span class="connection-label">正在连接</span></span><button class="icon-button" data-action="refresh" aria-label="刷新概览" title="刷新"><span data-icon="refresh"></span></button><button class="avatar" data-action="account" aria-label="账号设置" id="account-avatar"><img src="/assets/favicon.svg?v=69cf9a0949" alt="" width="32" height="32"></button></div>
+    </header><div id="initial-banner" class="banner" hidden>初始账号已就绪，建议设置你自己的密码。<button class="text-button" data-action="account">设置账号</button></div>
+    <main id="main" tabindex="-1"></main></div>
+  </div>
+  <dialog id="detail-dialog" class="drawer" aria-labelledby="detail-title"><div class="drawer-top"><div><span class="eyebrow" id="detail-eyebrow">EXECUTION DETAIL</span><h2 id="detail-title">执行详情</h2></div><button class="icon-button" data-action="close-detail" aria-label="关闭详情"><span data-icon="close"></span></button></div><div id="detail-content" class="drawer-content"></div></dialog>
+  <dialog id="action-dialog" class="action-dialog" aria-labelledby="action-title"><div id="action-content"></div></dialog>
+  <div id="toast" role="status" class="toast" hidden></div>
+  </div>
+</body>
+</html>

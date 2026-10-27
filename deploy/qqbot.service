@@ -1,0 +1,25 @@
+[Unit]
+Description=QQ NapCat OpenCode bridge
+After=network-online.target docker.service
+Wants=network-online.target
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=@RUN_USER@
+WorkingDirectory="@PROJECT_DIR@"
+EnvironmentFile="@PROJECT_DIR@/.env"
+Environment="PATH=@EXEC_PATH@"
+ExecStart="@PROJECT_DIR@/.venv/bin/python" -m qqbot
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=40
+# OpenCode owns a shared background server; preserve it across bridge restarts.
+KillMode=process
+UMask=0077
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,28 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "custom/your-chat-model",
+  "providers": {
+    "custom": {
+      "name": "My model provider",
+      "package": "@opencode/ai/providers/openai-compatible",
+      "settings": {
+        "baseURL": "https://api.example.com/v1",
+        "apiKey": "{file:./provider-api-key.txt}"
+      },
+      "models": {
+        "your-chat-model": {
+          "name": "My chat model",
+          "capabilities": {
+            "tools": true,
+            "input": [
+              "text"
+            ],
+            "output": [
+              "text"
+            ]
+          }
+        }
+      }
+    }
+  }
+}

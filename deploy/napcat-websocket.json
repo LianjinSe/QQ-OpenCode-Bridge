@@ -1,0 +1,12 @@
+{
+  "name": "opencode-bridge",
+  "enable": true,
+  "host": "0.0.0.0",
+  "port": 3001,
+  "messagePostFormat": "array",
+  "reportSelfMessage": false,
+  "token": "REPLACE_WITH_NAPCAT_TOKEN_FROM_ENV",
+  "enableForcePushEvent": true,
+  "debug": false,
+  "heartInterval": 30000
+}

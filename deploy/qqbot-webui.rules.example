@@ -1,0 +1,10 @@
+// Optional: allow only this service account to restart only this bridge.
+// Replace @RUN_USER@ before installing in /etc/polkit-1/rules.d/.
+polkit.addRule(function(action, subject) {
+  if (action.id === "org.freedesktop.systemd1.manage-units" &&
+      action.lookup("unit") === "qqbot.service" &&
+      action.lookup("verb") === "restart" &&
+      subject.user === "@RUN_USER@") {
+    return polkit.Result.YES;
+  }
+});

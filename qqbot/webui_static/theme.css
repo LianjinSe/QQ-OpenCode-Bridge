@@ -1,0 +1,454 @@
+/* Application styles are scoped so browser/userscript controls keep their own layout. */
+/* Fixed light theme, derived from the owner's homepage and LumaGlass blog.
+   Fonts and the mist SVG are served locally; there are no third-party requests. */
+@font-face {
+  font-family: "Console Serif";
+  src: url("/assets/serif-sc.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Console Mono";
+  src: url("/assets/mono.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+}
+#qqbot-console {
+  color-scheme: light;
+  font-family: "Console Mono", "Console Serif", "Songti SC", serif;
+  --accent: #356ca5;
+  --muted: #647189;
+  --border: rgb(75 92 122 / 13%);
+  --radius: 22px;
+  --text: #202a3e;
+  --text-2: #56647b;
+  --glass-edge: rgb(255 255 255 / 85%);
+  --glass: rgb(255 255 255 / 48%);
+  --glass-chrome: rgb(255 255 255 / 64%);
+  --glass-card: rgb(242 246 254 / 66%);
+  --glass-reading: rgb(250 252 255 / 95%);
+  --control-bg: rgb(255 255 255 / 74%);
+  --bg-soft: rgb(95 115 150 / 6%);
+  --shadow-soft: 0 8px 32px -14px rgb(64 78 120 / 14%), 0 1px 2px rgb(52 65 99 / 3%);
+  --inner-light: inset 0 1px 0 rgb(255 255 255 / 94%), inset 0 -1px 0 rgb(255 255 255 / 28%);
+  background: #edf1f8;
+  color: var(--text);
+}
+#qqbot-console {
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  background: #edf1f8;
+  isolation: isolate;
+}
+#qqbot-console::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: url("/assets/mist.svg") center top / cover no-repeat,
+    radial-gradient(ellipse at 8% 0%, #e1e3f3 0%, transparent 53%),
+    radial-gradient(ellipse at 94% 19%, #e0e9f6 0%, transparent 55%),
+    linear-gradient(150deg, #f1f2f8, #e8eff8 70%, #eef3fa);
+}
+#qqbot-console h1,#qqbot-console h2,#qqbot-console h3,#qqbot-console .brand {font-family: "Console Serif", "Songti SC", serif; color: var(--text)}
+#qqbot-console h1 {font-weight: 600; letter-spacing: .03em}
+#qqbot-console h2,#qqbot-console h3 {font-weight: 600}
+#qqbot-console .brand-mark {background: rgb(255 255 255 / 70%);color: #356ca5;box-shadow: var(--inner-light), 0 2px 8px #4563890c}
+#qqbot-console .brand small,#qqbot-console .nav-label,#qqbot-console .sidebar-bottom small,#qqbot-console .sidebar-bottom {color: var(--text-2)}
+#qqbot-console .sidebar {
+  inset: 18px auto 18px 18px;
+  width: 214px;
+  border-radius: 28px;
+  background: var(--glass-chrome);
+  color: var(--text);
+  border: 1px solid var(--glass-edge);
+  box-shadow: var(--inner-light), var(--shadow-soft);
+  backdrop-filter: blur(28px) saturate(150%);
+  -webkit-backdrop-filter: blur(28px) saturate(150%);
+}
+#qqbot-console .nav-button {color: var(--text-2);font-size:13px;padding:13px 14px;border-radius:14px}
+#qqbot-console .nav-button.active {background:var(--control-bg);color:var(--text);box-shadow:var(--inner-light),0 2px 8px #35506908}
+#qqbot-console .nav-button.active svg {color:var(--accent)}
+@media (hover: hover) and (pointer: fine) {
+#qqbot-console .nav-button:hover {background:rgb(255 255 255 / 45%)}
+}
+#qqbot-console .sidebar-bottom {border-top-color:var(--border)}
+#qqbot-console .workspace {margin-left:250px;width:calc(100% - 250px)}
+#qqbot-console .topbar {
+  margin:18px 30px 0;
+  height:66px;
+  border-radius:24px;
+  border:1px solid var(--glass-edge);
+  background:var(--glass-chrome);
+  box-shadow:var(--inner-light),var(--shadow-soft);
+  backdrop-filter:blur(26px) saturate(160%);
+  -webkit-backdrop-filter:blur(26px) saturate(160%);
+  padding:0 23px;
+}
+#qqbot-console main {padding:32px 30px}
+#qqbot-console .topbar-title,#qqbot-console .topbar-actions {font-size:11px}
+#qqbot-console .avatar,#qqbot-console .conversation-avatar,#qqbot-console .message-label .mini-avatar,#qqbot-console .status-symbol,#qqbot-console .service-icon {
+  background:rgb(76 122 180 / 8%);color:var(--accent);border-radius:11px;
+}
+#qqbot-console .avatar {border-radius:50%}
+#qqbot-console .eyebrow {color:#617899}
+#qqbot-console .banner {background:rgb(223 234 249 / 70%);color:#526e91;margin:15px 30px 0;border-radius:13px;font-size:11px;padding:11px 18px}
+#qqbot-console .button,#qqbot-console .primary,#qqbot-console .danger {border-radius:999px}
+#qqbot-console .button {background:var(--control-bg);color:var(--text-2);border-color:var(--glass-edge);box-shadow:var(--inner-light)}
+@media (hover: hover) and (pointer: fine) {
+#qqbot-console .button:hover,#qqbot-console .icon-button:hover {background:#edf3fd}
+}
+#qqbot-console .primary {background:#263c5c;border-color:#263c5c;color:#f4f7fd;box-shadow:0 4px 15px #263c5c16}
+@media (hover: hover) and (pointer: fine) {
+#qqbot-console .primary:hover {background:#385173}
+}
+#qqbot-console .text-button {color:var(--accent)}
+#qqbot-console .icon-button {color:var(--text-2)}
+#qqbot-console .connection {color:#4c7c7e}
+#qqbot-console .panel,#qqbot-console .stat-card,#qqbot-console .chat-job,#qqbot-console .memory-card,#qqbot-console .conversation-panel,#qqbot-console .run-message {
+  background:var(--glass-card);
+  border-color:var(--glass-edge);
+  box-shadow:var(--inner-light),var(--shadow-soft);
+  backdrop-filter:blur(24px) saturate(135%);
+  -webkit-backdrop-filter:blur(24px) saturate(135%);
+}
+#qqbot-console .panel-heading,#qqbot-console .status-row,#qqbot-console .user-block,#qqbot-console .conversation-search,#qqbot-console .conversation-load,#qqbot-console .run-detail,#qqbot-console .memory-source,#qqbot-console .setting-row,#qqbot-console .audit-list li {
+  border-color:var(--border);
+}
+#qqbot-console .panel-heading {padding:21px 24px}
+#qqbot-console .stat-value {font-weight:400;color:var(--text);letter-spacing:-1.5px}
+#qqbot-console .stat-card .stat-icon {background:var(--bg-soft);color:#617da0;border:1px solid var(--glass-edge)}
+#qqbot-console .stat-label,#qqbot-console .stat-note,#qqbot-console .task-sub,#qqbot-console .intro-note,#qqbot-console .conversation-preview,#qqbot-console .conversation-date,#qqbot-console .chat-job-top,#qqbot-console .chat-job-footer,#qqbot-console .memory-meta,#qqbot-console .detail-note,#qqbot-console .form-hint,#qqbot-console .model-tag,#qqbot-console .technical-id,#qqbot-console .audit-list small,#qqbot-console .status-row p,#qqbot-console .setting-row span:first-child,#qqbot-console .feed-heading p {
+  color:var(--text-2);
+}
+#qqbot-console .task-table th {background:rgb(255 255 255 / 28%);color:var(--text-2)}
+#qqbot-console .task-table td {border-top-color:var(--border)}
+#qqbot-console .task-table .task-text,#qqbot-console .message-text,#qqbot-console .memory-content,#qqbot-console .run-text,#qqbot-console .setting-row span:last-child {color:var(--text)}
+#qqbot-console .pill {border-radius:999px;padding:4px 9px;background:var(--bg-soft);color:var(--text-2);font-size:10px}
+#qqbot-console .pill.good {background:#e5f0eac7;color:#437862}
+#qqbot-console .pill.bad {background:#f9eae7;color:#a3574c}
+#qqbot-console .pill.warm {background:#f5eddccc;color:#977434}
+#qqbot-console .pill.blue {background:#dfeaf9c7;color:#486c98}
+#qqbot-console .search,#qqbot-console .toolbar select,#qqbot-console label input {border-color:var(--border);border-radius:13px;background:var(--control-bg);color:var(--text)}
+#qqbot-console .search::placeholder {color:#7b89a0}
+#qqbot-console .conversation-button {border-radius:14px}
+#qqbot-console .conversation-button.selected {background:rgb(255 255 255 / 74%);box-shadow:var(--inner-light)}
+@media (hover: hover) and (pointer: fine) {
+#qqbot-console .conversation-button:hover {background:rgb(255 255 255 / 44%)}
+}
+#qqbot-console .conversation-button.selected .conversation-avatar {background:#dce8f7;color:#456b9a}
+#qqbot-console .conversation-name {color:var(--text)}
+#qqbot-console .conversation-load {background:transparent;color:var(--accent)}
+#qqbot-console .message-label {color:#607490}
+@media (hover: hover) and (pointer: fine) {
+#qqbot-console .chat-job:hover,#qqbot-console .memory-card:hover {border-color:rgb(138 166 204 / 40%)}
+}
+#qqbot-console .source-excerpt {background:var(--bg-soft);color:var(--text-2);border-radius:13px}
+#qqbot-console .source-excerpt small,#qqbot-console .memory-source summary {color:var(--text-2)}
+#qqbot-console .detail-metric {background:var(--control-bg);border-color:var(--glass-edge);border-radius:15px;box-shadow:var(--inner-light)}
+#qqbot-console .detail-metric span,#qqbot-console .run-message-header,#qqbot-console .detail-section-title {color:var(--text-2)}
+#qqbot-console .detail-metric strong {color:#2b4568;font-weight:400}
+#qqbot-console .run-detail {background:rgb(255 255 255 / 52%);border-radius:13px}
+#qqbot-console .run-detail summary,#qqbot-console .run-detail-body pre,#qqbot-console .run-detail-body h4 {color:var(--text-2)}
+#qqbot-console .run-detail-body pre,#qqbot-console .technical-id {font-family:"Console Mono","Console Serif",monospace}
+#qqbot-console .drawer {background:var(--glass-reading);border-left-color:var(--glass-edge);box-shadow:-10px 0 50px #304c7412}
+#qqbot-console .drawer-top {background:var(--glass-chrome);border-color:var(--border);backdrop-filter:blur(24px)}
+#qqbot-console .drawer::backdrop,#qqbot-console .action-dialog::backdrop {background:#14294435;backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px)}
+#qqbot-console .action-dialog {background:var(--glass-reading);border-radius:26px;border-color:var(--glass-edge);box-shadow:var(--inner-light),0 20px 65px -18px #263b6e40}
+#qqbot-console .action-dialog p,#qqbot-console label {color:var(--text-2)}
+#qqbot-console .trace-list li {border-left-color:#cedbed}
+#qqbot-console .trace-list li:before {background:#85a5cc}
+#qqbot-console .trace-list small {color:var(--muted)}
+#qqbot-console .toast {background:#263c5c;border:1px solid #cedbef66;border-radius:16px;box-shadow:0 9px 30px #233a6520}
+#qqbot-console .empty,#qqbot-console .no-results {color:var(--text-2)}
+#qqbot-console .empty svg {color:#93a8c2}
+#qqbot-console .login-story {
+  background:var(--glass);
+  color:var(--text);
+  margin:30px 0 30px 30px;
+  border:1px solid var(--glass-edge);
+  border-radius:36px;
+  min-height:calc(100dvh - 60px);
+  box-shadow:var(--inner-light),var(--shadow-soft);
+  backdrop-filter:blur(24px);
+}
+#qqbot-console .login-story h1 {font-size:clamp(33px,3.8vw,57px);line-height:1.55;font-weight:600}
+#qqbot-console .login-story p,#qqbot-console .login-story>small,#qqbot-console .login-story .brand>span:last-child {color:var(--text-2)}
+#qqbot-console .login-panel {background:transparent}
+#qqbot-console .login-card {padding:37px;max-width:410px;background:var(--glass-chrome);border:1px solid var(--glass-edge);border-radius:30px;box-shadow:var(--inner-light),var(--shadow-soft);backdrop-filter:blur(26px)}
+#qqbot-console .login-card h2 {font-size:26px;font-weight:600}
+#qqbot-console .login-submit {border-radius:999px}
+@media(min-width:1550px) {#qqbot-console main{padding:36px 40px}#qqbot-console .topbar{margin-right:40px;margin-left:40px}}
+@media(max-width:1150px) {#qqbot-console .sidebar{width:190px;inset:15px auto 15px 15px;padding:25px 14px}#qqbot-console .workspace{margin-left:220px;width:calc(100% - 220px)}#qqbot-console .topbar{margin:15px 22px 0}#qqbot-console main{padding:27px 22px}#qqbot-console .login-story{padding:35px}}
+@media(max-width:760px) {
+  #qqbot-console .sidebar{width:220px;inset:12px auto 12px 12px;transform:translateX(calc(-100% - 12px));box-shadow:15px 0 60px #263b6e25;background:rgb(240 245 253 / 96%)}
+  #qqbot-console .sidebar.open{transform:translateX(0)}
+  #qqbot-console .workspace{width:100%;margin:0}
+  #qqbot-console .topbar{margin:12px 12px 0;padding:0 12px;height:59px;border-radius:20px}
+  #qqbot-console main{padding:24px 16px}
+  #qqbot-console .banner{margin:12px 12px 0;padding:10px 12px}
+  #qqbot-console .stat-card{border-radius:19px}
+  #qqbot-console .panel-heading{padding:18px}
+  #qqbot-console .chat-job{border-radius:20px}
+  #qqbot-console .login-story{margin:15px 15px 0;min-height:auto;padding:27px 25px;border-radius:27px;gap:24px}
+  #qqbot-console .login-story h1{font-size:27px;line-height:1.6;letter-spacing:0}
+  #qqbot-console .login-panel{padding:22px 15px}
+  #qqbot-console .login-card{max-width:none;padding:27px 24px;border-radius:27px}
+  #qqbot-console .login-story p{font-size:12px}
+}
+
+/* Login is a compact, vertically centred composition, with more room for the story. */
+#qqbot-console .login-layout{
+  width:min(1500px,100%);margin-inline:auto;min-height:100dvh;
+  grid-template-columns:minmax(0,1.5fr) minmax(320px,420px);
+  gap:clamp(36px,6vw,96px);align-items:center;
+  padding:clamp(24px,4vh,48px) clamp(24px,4.5vw,64px);
+}
+#qqbot-console .login-story{
+  margin:0;padding:20px 0;min-height:0;justify-content:flex-start;gap:44px;
+  background:none;border:0;border-radius:0;box-shadow:none;
+  backdrop-filter:none;-webkit-backdrop-filter:none;
+}
+#qqbot-console .login-story h1{font-size:clamp(36px,4.4vw,66px);line-height:1.5;margin:20px 0;letter-spacing:.02em}
+#qqbot-console .login-story p{font-size:13px;line-height:2}
+#qqbot-console .login-story>small{margin-top:0}
+#qqbot-console .login-panel{padding:0;min-width:0}
+#qqbot-console .login-card{max-width:420px;padding:30px;border-radius:29px}
+#qqbot-console .login-card h2{font-size:25px;margin:12px 0 8px}
+#qqbot-console .login-card>.muted{margin-bottom:22px;line-height:1.7}
+#qqbot-console .login-card label{margin-top:16px}
+#qqbot-console .login-card label input{margin-top:8px;padding:11px 12px;line-height:1.4}
+#qqbot-console .login-card .error:empty{display:none}
+#qqbot-console .login-card .error:not(:empty){margin-top:12px}
+#qqbot-console .login-submit{min-height:44px;padding:11px 17px;margin:24px 0 18px}
+@media(min-width:901px) and (max-height:650px){
+  #qqbot-console .login-layout{padding-block:20px}
+  #qqbot-console .login-story{gap:26px}
+  #qqbot-console .login-story h1{font-size:44px;margin:14px 0}
+  #qqbot-console .login-card{padding:25px 28px}
+  #qqbot-console .login-card>.muted{margin-bottom:17px}
+  #qqbot-console .login-card label{margin-top:13px}
+  #qqbot-console .login-submit{margin-top:20px;margin-bottom:14px}
+}
+@media(max-width:900px){
+  #qqbot-console .login-layout{grid-template-columns:minmax(0,1fr);gap:25px;padding:24px;align-content:center}
+  #qqbot-console .login-story{padding:0;gap:20px;width:100%;max-width:560px;justify-self:center}
+  #qqbot-console .login-story .eyebrow,#qqbot-console .login-story>small{display:none}
+  #qqbot-console .login-story h1{font-size:30px;line-height:1.5;margin:12px 0}
+  #qqbot-console .login-story h1 br{display:none}
+  #qqbot-console .login-story p{font-size:12px;line-height:1.8}
+  #qqbot-console .login-card{max-width:560px;padding:27px}
+}
+@media(max-width:600px){
+  #qqbot-console .login-layout{padding:22px 18px;gap:22px}
+  #qqbot-console .login-story{gap:16px}
+  #qqbot-console .login-story h1{font-size:27px}
+  #qqbot-console .login-story p br{display:none}
+  #qqbot-console .login-card{padding:25px 24px}
+  #qqbot-console .login-card>.muted{margin-bottom:18px}
+}
+
+/* Shared icon geometry: SVG dimensions never depend on text baselines. */
+#qqbot-console .ui-icon{display:block;width:20px;height:20px;flex:none;vertical-align:middle}
+#qqbot-console [data-icon]{display:inline-flex;align-items:center;justify-content:center;flex:none;line-height:1}
+#qqbot-console .icon-button{display:inline-grid;place-items:center;flex:none;width:36px;height:36px;padding:0;line-height:1;border-radius:50%}
+#qqbot-console .text-button,#qqbot-console .button,#qqbot-console .primary,#qqbot-console .danger{align-items:center;justify-content:center;gap:7px}
+#qqbot-console .text-button{display:inline-flex;vertical-align:middle}
+#qqbot-console .button .ui-icon,#qqbot-console .text-button .ui-icon{width:16px;height:16px}
+#qqbot-console .pill .ui-icon{width:12px;height:12px}
+#qqbot-console .breadcrumb{display:inline-flex;align-items:center}
+#qqbot-console .breadcrumb .ui-icon{width:13px;height:13px}
+#qqbot-console .avatar,#qqbot-console .chat-avatar,#qqbot-console .conversation-avatar{display:inline-grid;place-items:center;flex:none;padding:0;overflow:hidden;line-height:1}
+#qqbot-console .avatar-image,#qqbot-console .avatar img{display:block;width:100%;height:100%;object-fit:cover;border-radius:inherit}
+#qqbot-console .brand-portrait{display:block;width:40px;height:40px;flex:none;border-radius:13px;object-fit:cover;border:1px solid var(--glass-edge);box-shadow:var(--inner-light)}
+#qqbot-console .sidebar-heading{display:flex;align-items:center;justify-content:space-between;gap:9px}
+#qqbot-console .sidebar{overflow-y:auto;overscroll-behavior-y:contain}
+#qqbot-console .sidebar-brand{background:none;border:0;padding:0;gap:10px;min-width:0;text-align:left}
+#qqbot-console .brand-copy{white-space:nowrap;letter-spacing:0;font-size:18px}
+#qqbot-console .sidebar-toggle{width:28px;height:32px}
+#qqbot-console .sidebar-toggle .ui-icon{width:18px;height:18px}
+#qqbot-console .sidebar-bottom .ui-icon{width:18px;height:18px;color:var(--accent)}
+#qqbot-console .nav-scrim{display:none}
+#qqbot-console .heading-copy{min-width:0}
+#qqbot-console .heading-copy h1{overflow-wrap:anywhere}
+#qqbot-console .heading-actions,#qqbot-console .page-tools{display:flex;align-items:center;justify-content:flex-end;gap:9px;flex:none}
+#qqbot-console .heading-actions{flex-wrap:wrap;max-width:55%}
+#qqbot-console .heading-extra{display:flex;align-items:center}
+#qqbot-console .page-tools .avatar{width:34px;height:34px}
+#qqbot-console .stat-head{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:34px}
+#qqbot-console .stat-head .stat-label{margin:0;min-width:0;line-height:1.7}
+#qqbot-console .stat-card .stat-icon{position:static;display:grid;place-items:center;width:34px;height:34px;padding:0;flex:none;border-radius:11px}
+#qqbot-console .stat-card .stat-icon .ui-icon{width:18px;height:18px}
+#qqbot-console .stat-card .stat-value{display:block;margin-top:13px}
+#qqbot-console .status-symbol .ui-icon{width:19px;height:19px}
+#qqbot-console .service-icon .ui-icon{width:24px;height:24px}
+#qqbot-console .icon-link{gap:6px}
+#qqbot-console .inline-actions{align-items:center}
+
+/* Conversation history owns its scroll area; page controls remain reachable. */
+#qqbot-console .workspace[data-page="conversations"]{height:100dvh;min-height:0;display:flex;flex-direction:column}
+#qqbot-console .workspace[data-page="conversations"] #main{display:flex;flex-direction:column;flex:1;min-height:0;width:100%}
+#qqbot-console .workspace[data-page="conversations"] .page-heading{flex:none}
+#qqbot-console .workspace[data-page="conversations"] .chat-layout{flex:1;min-height:0;height:0}
+#qqbot-console .workspace[data-page="conversations"] .conversation-panel{position:static;height:100%;min-height:0;display:flex;flex-direction:column}
+#qqbot-console .workspace[data-page="conversations"] .conversation-list{flex:1;min-height:0;max-height:none;overscroll-behavior-y:contain}
+#qqbot-console .chat-feed{display:flex;flex-direction:column;height:100%;min-height:0;position:relative}
+#qqbot-console .feed-toolbar{flex:none}
+#qqbot-console .chat-history{flex:1;min-height:0;overflow-y:auto;overscroll-behavior-y:contain;scrollbar-gutter:stable;padding:0 6px 15px 0;overflow-anchor:none}
+#qqbot-console .chat-end{height:1px}
+#qqbot-console .chat-history .chat-turn:last-of-type{margin-bottom:4px}
+#qqbot-console .jump-latest{position:absolute;bottom:22px;right:22px;z-index:2;box-shadow:0 5px 20px #263b6e25;background:var(--glass-reading);border-color:var(--glass-edge)}
+@media(min-width:761px){
+  #qqbot-console.sidebar-collapsed .sidebar{width:80px;padding:23px 10px}
+  #qqbot-console.sidebar-collapsed .workspace{margin-left:118px;width:calc(100% - 118px)}
+  #qqbot-console.sidebar-collapsed .sidebar-heading{flex-direction:column;gap:14px}
+  #qqbot-console.sidebar-collapsed .brand-copy,#qqbot-console.sidebar-collapsed .nav-text,#qqbot-console.sidebar-collapsed .nav-label,#qqbot-console.sidebar-collapsed .sidebar-bottom-copy{display:none}
+  #qqbot-console.sidebar-collapsed .nav-button{justify-content:center;padding:14px;width:54px;margin:6px auto}
+  #qqbot-console.sidebar-collapsed #navigation{margin-top:25px}
+  #qqbot-console.sidebar-collapsed .sidebar-bottom{justify-content:center;padding-inline:0}
+}
+@media(max-width:760px){
+  #qqbot-console .icon-button{width:44px;height:44px;min-width:44px;min-height:44px}
+  #qqbot-console .topbar{padding-inline:10px}
+  #qqbot-console .topbar-title,#qqbot-console .topbar-actions{gap:7px}
+  #qqbot-console .topbar-actions .avatar,#qqbot-console .page-tools .avatar{width:38px;height:38px;min-width:38px}
+  #qqbot-console .sidebar-toggle{width:40px;height:40px;min-width:40px;min-height:40px}
+  #qqbot-console .sidebar-brand .brand-portrait{width:35px;height:35px}
+  #qqbot-console .sidebar-heading{gap:7px}
+  #qqbot-console .nav-scrim{display:block;position:fixed;inset:0;width:100%;height:100%;z-index:25;background:#24355040;backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);touch-action:none}
+  #qqbot-console .page-heading{gap:12px;align-items:flex-start}
+  #qqbot-console .heading-actions{max-width:51%;gap:5px}
+  #qqbot-console .page-tools{gap:2px}
+  #qqbot-console .heading-extra .button{font-size:10px;padding:8px 11px}
+  #qqbot-console .stat-head{gap:8px;min-height:30px}
+  #qqbot-console .stat-card .stat-icon{width:30px;height:30px;border-radius:9px}
+  #qqbot-console .stat-card .stat-icon .ui-icon{width:17px;height:17px}
+  #qqbot-console .stat-head .stat-label{font-size:11px}
+  #qqbot-console .stat-card .stat-value{margin-top:12px}
+  #qqbot-console .workspace[data-page="conversations"] .chat-layout{grid-template-columns:minmax(0,1fr)}
+  #qqbot-console .workspace[data-page="conversations"] #main{padding-bottom:max(16px,env(safe-area-inset-bottom))}
+  #qqbot-console .chat-history{padding-right:2px}
+  #qqbot-console .feed-heading{gap:8px}
+  #qqbot-console .feed-heading h2{font-size:16px}
+  #qqbot-console .feed-heading .pill{font-size:9px;flex:none}
+  #qqbot-console .jump-latest{bottom:15px;right:10px;font-size:11px}
+}
+@media(max-width:380px){
+  #qqbot-console .topbar .connection-label{display:none}
+  #qqbot-console .topbar .connection{padding:8px 3px}
+  #qqbot-console .heading-copy h1{font-size:22px}
+  #qqbot-console .page-tools .avatar{width:34px;height:34px;min-width:34px}
+}
+
+/* Table rows become compact cards on narrow screens instead of overflowing. */
+@media(max-width:600px){
+  #qqbot-console .task-table{display:block;width:100%;min-width:0}
+  #qqbot-console .task-table thead{display:none}
+  #qqbot-console .task-table tbody{display:block}
+  #qqbot-console .task-table tr{display:grid;grid-template-columns:minmax(0,1fr);border-top:1px solid var(--border);padding:13px 16px;gap:7px}
+  #qqbot-console .task-table tr:first-child{border-top:0}
+  #qqbot-console .task-table td{display:block;padding:0;border:0;min-width:0}
+  #qqbot-console .task-table .task-text{max-width:100%;white-space:normal;overflow-wrap:anywhere;line-height:1.85;text-align:left}
+  #qqbot-console .task-table td:last-child{justify-self:end}
+  #qqbot-console .task-list-table tr{grid-template-columns:minmax(0,1fr) auto;column-gap:12px;row-gap:9px}
+  #qqbot-console .task-list-table .task-primary{grid-column:1;grid-row:1}
+  #qqbot-console .task-list-table .task-status{grid-column:2;grid-row:1;padding-top:2px}
+  #qqbot-console .task-list-table .task-date{grid-column:1;grid-row:2;align-self:center;font-size:10px}
+  #qqbot-console .task-list-table .task-actions{grid-column:2;grid-row:2}
+  #qqbot-console .task-list-table .task-text{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+  #qqbot-console .task-list-table .icon-link{display:grid;place-items:center;width:36px;height:36px;padding:0;border-radius:50%;background:var(--control-bg)}
+  #qqbot-console .task-list-table .icon-link .button-label{display:none}
+  #qqbot-console .task-status .pill{font-size:9px}
+  #qqbot-console .task-table .technical-id{font-size:10px;overflow-wrap:anywhere;white-space:normal}
+}
+
+#qqbot-console .inline-heading{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+#qqbot-console .inline-heading .ui-icon{width:15px;height:15px}
+@media(min-width:761px){
+  #qqbot-console .icon-button.mobile-menu,#qqbot-console .text-button.mobile-back{display:none}
+}
+@media(max-width:760px){
+  #qqbot-console .icon-button.mobile-menu{display:inline-grid}
+  #qqbot-console .text-button.mobile-back{display:inline-flex}
+  #qqbot-console .page-tools .avatar,#qqbot-console .topbar-actions .avatar{width:44px;height:44px;min-width:44px;min-height:44px}
+  #qqbot-console .search,#qqbot-console .toolbar select,#qqbot-console label input,#qqbot-console .conversation-search input{font-size:16px}
+}
+@media(max-width:600px){
+  #qqbot-console .task-list-table .icon-link{width:44px;height:44px}
+  #qqbot-console .panel-heading{flex-wrap:wrap;row-gap:8px}
+}
+
+@media(max-width:760px){
+  #qqbot-console .workspace[data-page="conversations"] .chat-layout{display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr)}
+  #qqbot-console .workspace[data-page="conversations"] .chat-layout.has-selection .conversation-panel{display:none}
+  #qqbot-console .workspace[data-page="conversations"] .chat-layout.has-selection .chat-feed{display:flex}
+  #qqbot-console .workspace[data-page="conversations"] .chat-layout:not(.has-selection) .chat-feed{display:none}
+  #qqbot-console .workspace[data-page="conversations"] .chat-layout:not(.has-selection) .conversation-panel{display:flex}
+  #qqbot-console .topbar{margin-top:max(12px,env(safe-area-inset-top))}
+  #qqbot-console .workspace #main{padding-top:max(24px,calc(env(safe-area-inset-top) + 12px))}
+  #qqbot-console .sidebar{top:max(12px,env(safe-area-inset-top));bottom:max(12px,env(safe-area-inset-bottom))}
+}
+
+
+/* Document knowledge: scoped to the console, including all form controls. */
+#qqbot-console .knowledge-layout { display:grid; grid-template-columns:250px minmax(0,1fr); gap:24px; align-items:start; }
+#qqbot-console .knowledge-libraries { display:grid; gap:12px; min-width:0; }
+#qqbot-console .section-caption { display:flex; justify-content:space-between; color:var(--muted); padding:4px 12px; font-size:13px; }
+#qqbot-console .knowledge-library { display:block; width:100%; padding:22px; text-align:left; border:1px solid rgba(255,255,255,.8); border-radius:24px; background:rgba(255,255,255,.35); color:inherit; overflow-wrap:anywhere; }
+#qqbot-console .knowledge-library.selected { background:rgba(255,255,255,.7); border-color:rgba(96,125,164,.35); box-shadow:0 8px 28px rgba(45,65,105,.06); }
+#qqbot-console .knowledge-library > span { display:flex; gap:10px; align-items:center; }
+#qqbot-console .knowledge-library p { font-size:13px; line-height:1.7; margin:12px 0; color:var(--muted); }
+#qqbot-console .knowledge-library small { font-size:12px; color:var(--muted); }
+#qqbot-console .knowledge-main { min-width:0; }
+#qqbot-console .knowledge-main .panel-heading { gap:16px; }
+#qqbot-console .knowledge-main .panel-heading h3 { overflow-wrap:anywhere; }
+#qqbot-console .knowledge-upload { padding:20px; border:1px dashed rgba(104,130,166,.4); border-radius:20px; margin-bottom:20px; display:grid; gap:12px; }
+#qqbot-console .knowledge-upload label { display:flex; flex-wrap:wrap; gap:12px; align-items:center; font-size:15px; }
+#qqbot-console .knowledge-upload input { width:100%; min-width:0; font:inherit; font-size:14px; }
+#qqbot-console .knowledge-upload .button { justify-self:start; }
+#qqbot-console .knowledge-document { padding:20px 0; border-bottom:1px solid rgba(94,112,147,.13); }
+#qqbot-console .knowledge-document-title { display:flex; align-items:center; gap:12px; min-width:0; }
+#qqbot-console .knowledge-document-title > div { flex:1; min-width:0; }
+#qqbot-console .knowledge-document-title h3 { font-size:16px; overflow-wrap:anywhere; margin:0; }
+#qqbot-console .knowledge-document-title p { color:var(--muted); font-size:12px; margin:6px 0 0; }
+#qqbot-console .knowledge-document-title > .pill { flex-shrink:0; }
+#qqbot-console .knowledge-document-actions { display:flex; flex-wrap:wrap; align-items:center; gap:12px; margin-top:14px; }
+#qqbot-console .knowledge-document-actions a { text-decoration:none; }
+#qqbot-console .knowledge-library-footer { display:flex; justify-content:flex-end; padding-top:22px; }
+#qqbot-console .knowledge-search { display:flex; gap:12px; }
+#qqbot-console .knowledge-search .search { flex:1; width:100%; min-width:0; }
+#qqbot-console .knowledge-search .primary { flex-shrink:0; }
+#qqbot-console .knowledge-hit { padding:18px; margin-top:16px; border:1px solid rgba(112,135,170,.14); border-radius:18px; background:rgba(255,255,255,.3); }
+#qqbot-console .knowledge-hit-title { display:flex; gap:12px; align-items:flex-start; margin-bottom:12px; }
+#qqbot-console .knowledge-hit-title .text-button { text-align:left; overflow-wrap:anywhere; }
+#qqbot-console .knowledge-excerpt { white-space:pre-wrap; overflow-wrap:anywhere; line-height:1.85; font-size:14px; }
+#qqbot-console .knowledge-groups { border:1px solid rgba(112,135,170,.22); border-radius:18px; padding:14px; margin:16px 0; }
+#qqbot-console .knowledge-groups .knowledge-group { display:flex; align-items:center; gap:10px; margin:8px 0; min-height:44px; }
+#qqbot-console .knowledge-group input[type=checkbox] { width:20px; height:20px; min-height:20px; flex:none; padding:0; }
+#qqbot-console #knowledge-library-form textarea { font:inherit; font-size:16px; width:100%; min-height:90px; padding:14px; border-radius:14px; border:1px solid rgba(112,135,170,.22); background:rgba(255,255,255,.5); color:inherit; resize:vertical; }
+@media (max-width:1100px) { #qqbot-console .knowledge-layout { grid-template-columns:200px minmax(0,1fr); gap:18px; } }
+@media (max-width:760px) {
+  #qqbot-console .knowledge-layout { display:block; }
+  #qqbot-console .knowledge-libraries { grid-template-columns:repeat(2,minmax(0,1fr)); margin-bottom:24px; gap:10px; }
+  #qqbot-console .knowledge-libraries .section-caption { grid-column:1/-1; }
+  #qqbot-console .knowledge-library { padding:16px; border-radius:20px; }
+  #qqbot-console .knowledge-library p { margin:8px 0; }
+  #qqbot-console .knowledge-search { flex-wrap:wrap; }
+  #qqbot-console .knowledge-search .search { flex-basis:100%; font-size:16px; }
+  #qqbot-console .knowledge-search .primary { min-height:44px; }
+  #qqbot-console .knowledge-document-title { flex-wrap:wrap; }
+  #qqbot-console .knowledge-document-title .status-symbol { display:none; }
+  #qqbot-console .knowledge-document-title > div { flex-basis:calc(100% - 100px); }
+  #qqbot-console .knowledge-upload { padding:16px; }
+  #qqbot-console .knowledge-upload input { font-size:16px; }
+  #qqbot-console .knowledge-document-actions .button, #qqbot-console .knowledge-document-actions .text-button { min-height:44px; }
+}
+@media (max-width:360px) { #qqbot-console .knowledge-libraries { grid-template-columns:minmax(0,1fr); } }
+#qqbot-console .sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+#qqbot-console .knowledge-upload .knowledge-file-picker { display:inline-flex; justify-self:start; width:auto; min-height:44px; border-radius:14px; padding:10px 14px; background:rgba(255,255,255,.65); border:1px solid rgba(112,135,170,.2); cursor:pointer; }
+#qqbot-console .knowledge-file-picker:focus-within { outline:2px solid var(--accent); outline-offset:3px; }
+#qqbot-console .knowledge-upload input.sr-only { width:1px; height:1px; min-height:0; padding:0; }
+#qqbot-console #knowledge-file-selection { overflow-wrap:anywhere; }

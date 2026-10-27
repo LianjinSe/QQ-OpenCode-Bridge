@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "qq-opencode-bridge"
+version = "0.1.0"
+license = {text = "MIT"}
+description = "A QQ / NapCat OneBot bridge for the OpenCode v2 API"
+requires-python = ">=3.12"
+dependencies = ["aiohttp>=3.10,<4", "python-dotenv>=1.0,<2", "mem0ai==2.2.1",
+                "psycopg2-binary>=2.9,<3", "jsonschema>=4,<5",
+                "llama-index-core==0.14.25", "llama-index-vector-stores-postgres==0.9.0",
+                "pypdf==6.21.2", "jieba==0.42.1", "PyYAML>=6,<7"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8,<10", "pytest-asyncio>=0.24,<2", "ruff>=0.9,<1"]
+
+[project.scripts]
+qqbot = "qqbot.__main__:main"
+
+[tool.setuptools]
+license-files = ["LICENSE", "THIRD_PARTY_NOTICES.md", "docs/NapCat-LICENSE.txt"]
+
+[tool.setuptools.packages.find]
+include = ["qqbot*"]
+
+[tool.setuptools.package-data]
+qqbot = ["webui_static/*", "napcat_catalogue.json"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "ASYNC"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*.py" = ["ASYNC109", "ASYNC110"]
