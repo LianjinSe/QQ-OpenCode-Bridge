@@ -158,6 +158,8 @@ class Store:
         self.db.execute("UPDATE outbox SET status='ready' WHERE status='uploading'")
         # A process may have died after sending but before recording the response.
         self.db.execute("UPDATE outbox SET status='uncertain' WHERE status='sending'")
+        # Completion pokes were retired. Keep attempted receipts, suppress unsent legacy ones.
+        self.db.execute("UPDATE outbox SET status='blocked' WHERE kind='poke' AND status='ready'")
         self.db.commit()
         for row in self.db.execute(
             "SELECT id FROM jobs WHERE status IN ('reply_ready','delivering')"
@@ -481,7 +483,7 @@ class Store:
         return [dict(row) for row in self.db.execute(sql + " ORDER BY created,rowid", (job_id,))]
 
     def _settle_steers(self, job_id: str, status: str) -> None:
-        # Inputs share one execution and delivery; they never create their own reply or poke.
+        # Inputs share one execution and delivery; they never create their own reply.
         self.db.execute(
             "UPDATE jobs SET status=? WHERE steer_parent_id=? AND status IN ('steering','steered')",
             (status, job_id),
@@ -862,14 +864,6 @@ class Store:
                 if status == "done":
                     if job["memory_isolated"]:
                         self._record_public_memory_reply(job)
-                    # The notification and successful completion commit together. Historical
-                    # completed jobs are never scanned or backfilled on startup.
-                    self.db.execute(
-                        """INSERT OR IGNORE INTO outbox
-                           (dedupe_key,job_id,target,text,first_chunk,kind,created)
-                           VALUES (?,?,?,'',0,'poke',?)""",
-                        (f"completion-poke:{job_id}:0", job_id, job["target"], time.time()),
-                    )
 
     def _record_public_memory_reply(self, job):
         context = Context(**json.loads(job["target"]))

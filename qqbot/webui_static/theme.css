@@ -297,6 +297,20 @@
 #qqbot-console .workspace[data-page="conversations"] .conversation-list{flex:1;min-height:0;max-height:none;overscroll-behavior-y:contain}
 #qqbot-console .chat-feed{display:flex;flex-direction:column;height:100%;min-height:0;position:relative}
 #qqbot-console .feed-toolbar{flex:none}
+#qqbot-console .session-context{padding:12px 14px;margin:0 0 14px;border:1px solid var(--glass-edge);border-radius:12px;background:var(--glass-reading);min-width:0}
+#qqbot-console .context-heading,#qqbot-console .context-summary{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+#qqbot-console .context-heading strong{font-size:12px;font-weight:500}
+#qqbot-console .context-percent{color:var(--accent);font-variant-numeric:tabular-nums;margin-left:7px}
+#qqbot-console .context-actions{display:flex;gap:7px;align-items:center;flex-wrap:wrap}
+#qqbot-console .context-actions .button{min-height:32px}
+#qqbot-console .context-meter{display:block;width:100%;height:6px;margin:10px 0;border:0;border-radius:4px;overflow:hidden;accent-color:var(--accent)}
+#qqbot-console .context-meter::-webkit-progress-bar{background:#7086b31a;border-radius:4px}
+#qqbot-console .context-meter::-webkit-progress-value{background:#7086b3;border-radius:4px}
+#qqbot-console .context-summary{font-size:11px;font-variant-numeric:tabular-nums}
+#qqbot-console .context-explanation{font-size:10px;margin-top:8px;overflow-wrap:anywhere}
+#qqbot-console .context-explanation summary{cursor:pointer;color:var(--muted)}
+#qqbot-console .context-note{font-size:11px;line-height:1.8;margin:8px 0 0;overflow-wrap:anywhere}
+@media(pointer:coarse){#qqbot-console .context-actions button,#qqbot-console .context-actions .button{min-height:44px;min-width:44px;touch-action:manipulation;user-select:none;-webkit-user-select:none}}
 #qqbot-console .chat-history{flex:1;min-height:0;overflow-y:auto;overscroll-behavior-y:contain;scrollbar-gutter:stable;padding:0 6px 15px 0;overflow-anchor:none}
 #qqbot-console .chat-end{height:1px}
 #qqbot-console .chat-history .chat-turn:last-of-type{margin-bottom:4px}

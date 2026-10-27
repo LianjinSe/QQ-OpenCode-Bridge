@@ -43,6 +43,9 @@ class OutboxSender:
                     async with asyncio.timeout(1):
                         await self.outbox_ready.wait()
                 continue
+            if item["kind"] == "poke":
+                self.store.update_outbox(item["id"], "blocked")
+                continue
             if item["job_id"] is not None and self.store.job(item["job_id"])["cancel_requested"]:
                 self.store.update_outbox(item["id"], "blocked")
                 continue
@@ -72,11 +75,6 @@ class OutboxSender:
                     result = await self.onebot.send_text(
                         context, item["text"], bool(item["first_chunk"])
                     )
-                elif item["kind"] == "poke":
-                    if item["job_id"] is None or self.store.job(item["job_id"])["status"] != "done":
-                        self.store.update_outbox(item["id"], "blocked")
-                        continue
-                    result = await self.onebot.send_poke(context)
                 else:
                     payload = json.loads(item["payload"])
                     data = await asyncio.to_thread(
@@ -104,8 +102,7 @@ class OutboxSender:
                 self.store.update_outbox(
                     item["id"], "sent", result.get("message_id", result.get("file_id"))
                 )
-                if item["kind"] != "poke":
-                    self.typing.message_sent(context)
+                self.typing.message_sent(context)
             except Unavailable:
                 self.store.update_outbox(item["id"], "ready")
             except DeliveryCancelled:

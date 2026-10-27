@@ -526,11 +526,26 @@ async def test_group_isolation_public_mirroring_and_other_users(harness, tmp_pat
             owner, "主人私人经历：在北山看过日出", "experience", "private", ["seed"]
         )
         await nap.emit(message("你记得私聊提过的那个地点吗", group=22, at=True, mid=1))
-        await eventually(lambda: bool(nap.pokes))
+        await eventually(
+            lambda: (
+                len(op.prompts) == 1
+                and bridge.store.latest(Context(777, 11, 22))["status"] == "done"
+            )
+        )
         await nap.emit(message("继续讨论", user=12, group=22, at=True, mid=2))
-        await eventually(lambda: len(nap.pokes) == 2)
+        await eventually(
+            lambda: (
+                len(op.prompts) == 2
+                and bridge.store.latest(Context(777, 12, 22))["status"] == "done"
+            )
+        )
         await nap.emit(message("再来一个问题", group=22, at=True, mid=3))
-        await eventually(lambda: len(nap.pokes) == 3)
+        await eventually(
+            lambda: (
+                len(op.prompts) == 3
+                and bridge.store.latest(Context(777, 11, 22))["status"] == "done"
+            )
+        )
         assert len(op.prompts) == 3
         assert "在北山看过日出" not in op.prompts[0]["text"]
         assert "在北山看过日出" not in op.prompts[1]["text"]
@@ -550,7 +565,9 @@ async def test_natural_remember_reaches_model_and_slash_controls_still_work(harn
     ) as (bridge, nap, op):
         await enable_fakes(bridge)
         await nap.emit(message("请记住，以后叫我阿辰", mid=10))
-        await eventually(lambda: bool(nap.pokes))
+        await eventually(
+            lambda: (bridge.store.latest(Context(777, 11)) or {}).get("status") == "done"
+        )
         assert op.prompts[0]["text"] == "请记住，以后叫我阿辰"
         assert bridge.memory.store.entries("qq:777:11") == []
         await nap.emit(message("/remember 以后叫我阿辰", mid=12))

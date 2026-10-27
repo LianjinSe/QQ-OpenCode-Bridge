@@ -255,14 +255,6 @@ class OneBot:
             raise ActionError("set_input_status", result["result"])
         return True
 
-    async def send_poke(self, context: Context) -> dict:
-        if context.self_id != self.self_id or not self.ready.is_set() or not self.online:
-            raise Unavailable("戳一戳所属 QQ 尚未连接")
-        params = {"user_id": str(context.user_id)}
-        if context.group_id is not None:
-            params["group_id"] = str(context.group_id)
-        return await self.call("send_poke", params, response_timeout=5)
-
     async def reply_content(
         self, context: Context, reply_id: str, *, trusted_bot_reply: bool = False
     ) -> ReplyContent:

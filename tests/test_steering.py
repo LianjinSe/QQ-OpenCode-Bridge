@@ -45,7 +45,7 @@ async def test_private_steers_share_execution_progress_and_one_delivery(harness)
         assert [job["status"] for job in bridge.store.steers(root["id"])] == ["done", "done"]
         assert (
             bridge.store.db.execute("SELECT COUNT(*) FROM outbox WHERE kind='poke'").fetchone()[0]
-            == 1
+            == 0
         )
 
 

@@ -2,6 +2,7 @@
 'use strict';
 import { createConversationsPage } from './console-conversations.js';
 import { createKnowledgePage } from './console-knowledge.js';
+import { createSessionContext } from './console-context.js';
 const state = {
   auth: null, view: 'overview', overview: null, memoryQuery: '', memoryKind: '',
   memorySubject: '', memoryOffset: 0, memoryTotal: 0, memories: [], queueHistory: false,
@@ -87,7 +88,8 @@ function pageTools() {
 const statusNames = {queued:'排队中',preparing:'准备中',submitting:'提交中',running:'执行中',waiting:'等待授权／回答',cancelling:'取消中',cancelled:'已取消',reply_ready:'等待交付',delivering:'交付中',done:'已完成',failed:'执行失败',send_uncertain:'发送未确认',send_failed:'发送失败',steering:'插话待提交',steered:'插话已提交',ready:'待发送',sending:'发送中',sent:'已发送',uncertain:'结果未确认',blocked:'已阻止',uploading:'上传中',completed:'已完成',error:'失败',pending:'等待中',answered:'已处理',expired:'已过期',active:'生效中'};
 const unfinished = new Set(['queued','preparing','submitting','running','waiting','cancelling','reply_ready','delivering']);
 const pill = status => `<span class="pill ${['done','sent','completed','active'].includes(status) ? 'good' : ['failed','send_failed','send_uncertain','uncertain','error'].includes(status) ? 'bad' : ['running','submitting','preparing','delivering'].includes(status) ? 'blue' : 'warm'}">${esc(statusNames[status] || status)}</span>`;
-const conversations = createConversationsPage({api, $, esc, number, date, ms, svg, avatarImage, userAvatar, empty, heading, keepDetails, pill, unfinished, toast, onOpenJob: id => openJob(id)});
+const sessionContext = createSessionContext({api, $, esc, number, date, dialog, toast});
+const conversations = createConversationsPage({api, $, esc, number, date, ms, svg, avatarImage, userAvatar, empty, heading, keepDetails, pill, unfinished, toast, sessionContext, onOpenJob: id => openJob(id)});
 
 let toastTimer, searchTimer;
 function toast(text) { $('#toast').textContent = text; $('#toast').hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => { $('#toast').hidden = true; }, 5000); }
@@ -105,6 +107,7 @@ async function api(path, body) {
 }
 function showLogin() {
   conversations.leave(); knowledge.leave();
+  sessionContext.clear();
   state.auth = null; state.viewVersion++; state.detailVersion++;
   $('#loading').hidden = true; $('#app').hidden = true; $('#login').hidden = false;
   $('#main').replaceChildren(); $('#detail-content').replaceChildren();
@@ -186,7 +189,7 @@ async function memoriesPage() {
   const enabled = await fetchMemories();
   return heading('记忆库', '个人资料、助手的信息、共同经历与日记，按来源和范围查看。') + `${!enabled ? '<div class="notice">当前未启用个人记忆。</div>' : ''}<div class="toolbar"><input class="search" id="memory-search" aria-label="搜索记忆" placeholder="搜索被记住的内容…" value="${esc(state.memoryQuery)}"><select id="memory-subject" aria-label="记忆主体"><option value="">全部主体</option>${Object.entries(subjectNames).map(([key,value]) => `<option value="${key}" ${state.memorySubject === key ? 'selected' : ''}>${value}</option>`).join('')}</select><select id="memory-kind" aria-label="记忆类型"><option value="">全部类型</option>${Object.entries(kindNames).map(([key,value]) => `<option value="${key}" ${state.memoryKind === key ? 'selected' : ''}>${value}</option>`).join('')}</select><span class="count-note" id="memory-count">共 ${number(state.memoryTotal)} 条</span></div><div id="memory-results">${memoryResults()}</div><div id="memory-more">${memoryMore()}</div><p class="intro-note">仅显示当前账号的有效或待保存记忆。已遗忘内容不在此展示；过期的短期状态单独标注。</p>`;
 }
-function auditName(action) { return ({login:'登录管理台',password_changed:'修改账号密码',restart_requested:'请求重启桥接',cancel_requested:'请求取消任务',mapping_switched:'切换会话映射'})[action] || action; }
+function auditName(action) { return ({login:'登录管理台',password_changed:'修改账号密码',restart_requested:'请求重启桥接',cancel_requested:'请求取消任务',mapping_switched:'切换会话映射',compaction_requested:'请求压缩会话',compaction_unconfirmed:'压缩请求未确认'})[action] || action; }
 function sessionRows() {
   const query = state.sessionQuery.toLowerCase();
   const items = state.sessionIndex.items.filter(item => `${item.title} ${item.id} ${item.conversation}`.toLowerCase().includes(query));
@@ -226,7 +229,7 @@ async function navigate(view, quiet = false) {
   if (!quiet) $('#main').innerHTML = '<div class="empty">正在读取记录…</div>';
   try {
     const html = await ({overview:overviewPage,conversations:conversations.render,sessions:sessionsPage,queue:queuePage,memories:memoriesPage,knowledge:knowledge.render,system:systemPage})[view]();
-    if (html !== null && state.auth && version === state.viewVersion) { keepDetails($('#main'),html); renderSidebarState(); if (view === 'conversations') conversations.restore(historyPosition,quiet ? 'preserve' : 'latest'); if (view === 'knowledge') await knowledge.openPendingDocument(); }
+    if (html !== null && state.auth && version === state.viewVersion) { keepDetails($('#main'),html); renderSidebarState(); if (view === 'conversations') { conversations.restore(historyPosition,quiet ? 'preserve' : 'latest'); await sessionContext.refresh(); } if (view === 'knowledge') await knowledge.openPendingDocument(); }
   } catch (error) {
     if (state.auth && version === state.viewVersion) $('#main').innerHTML = `<div class="notice">${esc(error.message)} <button class="text-button" data-action="refresh">重试</button></div>`;
     connected(false);
@@ -293,7 +296,8 @@ async function openSession(id, cursor = null) {
       $('#session-messages').insertAdjacentHTML('afterbegin',content);
       $('#session-more').innerHTML = result.next ? `<button class="button small load-older" data-action="older-session" data-cursor="${esc(result.next)}">${svg('up')}加载更早消息</button>` : '';
       $('#session-page-note').textContent = '已追加更早消息；上方统计对应首次加载的最近一页。';
-    } else $('#detail-content').innerHTML = `<div class="detail-toolbar">${state.detailJob ? `<button class="button small" data-action="back-job">${svg('back')}返回任务</button>` : ''}<span class="technical-id">${esc(id)}</span></div><h3>${esc(result.title)}</h3><p class="detail-note">历史会话按原始内容分页读取；包括系统记录、工具输入输出及模型返回的思考记录。</p>${detailMetrics(result.metrics,result.metrics_scope)}<p class="detail-note" id="session-page-note">本页 ${result.messages.length} 条记录，按时间顺序展示。</p>${result.children.length ? `<h3 class="detail-section-title">子会话</h3><div class="session-children">${result.children.map(child => `<button class="button small" data-action="session" data-id="${esc(child.id)}">${esc(child.title || child.id)} ${svg('open')}</button>`).join('')}</div>` : ''}<div id="session-more">${result.next ? `<button class="button small load-older" data-action="older-session" data-cursor="${esc(result.next)}">${svg('up')}加载更早消息</button>` : ''}</div><section id="session-messages">${content || empty('这个会话还没有消息')}</section>`;
+    } else $('#detail-content').innerHTML = `<div class="detail-toolbar">${state.detailJob ? `<button class="button small" data-action="back-job">${svg('back')}返回任务</button>` : ''}<span class="technical-id">${esc(id)}</span></div><h3>${esc(result.title)}</h3>${sessionContext.render(id)}<p class="detail-note">历史会话按原始内容分页读取；包括系统记录、工具输入输出及模型返回的思考记录。</p>${detailMetrics(result.metrics,result.metrics_scope)}<p class="detail-note" id="session-page-note">本页 ${result.messages.length} 条记录，按时间顺序展示。</p>${result.children.length ? `<h3 class="detail-section-title">子会话</h3><div class="session-children">${result.children.map(child => `<button class="button small" data-action="session" data-id="${esc(child.id)}">${esc(child.title || child.id)} ${svg('open')}</button>`).join('')}</div>` : ''}<div id="session-more">${result.next ? `<button class="button small load-older" data-action="older-session" data-cursor="${esc(result.next)}">${svg('up')}加载更早消息</button>` : ''}</div><section id="session-messages">${content || empty('这个会话还没有消息')}</section>`;
+    if (!cursor) await sessionContext.refresh();
   } catch (error) { if (state.auth && version === state.detailVersion) $('#detail-content').innerHTML = `<div class="notice">${esc(error.message)}</div>${state.detailJob ? '<button class="button" data-action="back-job">返回任务</button>' : ''}`; }
 }
 function dialog(html) { $('#action-content').innerHTML = html; if (!$('#action-dialog').open) $('#action-dialog').showModal(); }
@@ -330,6 +334,7 @@ async function refresh() {
   try {
     if (state.view === 'conversations' && $('#conversation-search')) await conversations.refresh(); else if (state.view === 'knowledge') await knowledge.refresh(); else if (!['memories','sessions','knowledge'].includes(state.view) && !(state.view === 'queue' && state.queueHistory)) await navigate(state.view,true);
     if (state.detailJob && !state.detailSession && state.detailData && unfinished.has(state.detailData.status)) await openJob(state.detailJob,true);
+    await sessionContext.refresh();
   } catch { connected(false); }
   finally { state.refreshing = false; }
 }
@@ -337,6 +342,7 @@ uiRoot.addEventListener('click',async event => {
   const button = event.target.closest('[data-action]'); if (!button) return;
   const action = button.dataset.action;
   try {
+    if (await sessionContext.handleAction(action, button)) return;
     if (await conversations.handleAction(action, button)) return;
     if (await knowledge.handleAction(action, button)) return;
     else if (action === 'navigate') { await navigate(button.dataset.view); }

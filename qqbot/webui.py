@@ -19,6 +19,7 @@ from .knowledge import MAX_UPLOAD, KnowledgeError
 from .models import Context
 from .opencode import ApiError, ProtocolError
 from .webui_auth import COOKIE_NAME, SESSION_SECONDS, AdminAuth
+from .webui_context import ContextConsole
 from .webui_data import UNFINISHED, DashboardData
 from .webui_knowledge import KnowledgeConsole
 
@@ -153,6 +154,7 @@ class AdminDashboard:
         self.data.history = lambda: self.auth.data.get("session_history", [])
         app = web.Application(middlewares=[self.middleware], client_max_size=MAX_UPLOAD + 65536)
         app.add_routes(KnowledgeConsole(self).routes())
+        app.add_routes(ContextConsole(self).routes())
         app.add_routes(
             [
                 web.get("/", self.index, name="index"),
@@ -208,6 +210,7 @@ class AdminDashboard:
             "console.js",
             "console-conversations.js",
             "console-knowledge.js",
+            "console-context.js",
             "style.css",
             "theme.css",
             "serif-sc.woff2",

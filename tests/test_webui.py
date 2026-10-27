@@ -29,6 +29,10 @@ class ConsoleOpenCode:
         self.active_ids = {}
         self.page_size = 2
         self.requests = []
+        self.contexts = {}
+        self.inboxes = {}
+        self.compactions = {}
+        self.models = [{"id": "test-model", "providerID": "test", "limit": {"context": 1000}}]
 
     def add(self, session_id, conversation=None, *, parent=None, archived=False):
         self.sessions[session_id] = {
@@ -49,6 +53,9 @@ class ConsoleOpenCode:
     async def active(self):
         return self.active_ids
 
+    async def inbox(self, session_id):
+        return self.inboxes.get(session_id, [])
+
     async def belongs_to(self, session_id, root):
         visited = set()
         while session_id and session_id not in visited:
@@ -58,9 +65,22 @@ class ConsoleOpenCode:
             session_id = (await self.get_session(session_id)).get("parentID")
         return False
 
-    async def request(self, method, path, *, params=None, unwrap=True):
+    async def request(self, method, path, *, params=None, unwrap=True, body=None):
+        if method == "POST" and path.endswith("/compact"):
+            session_id = path.split("/")[3]
+            self.compactions.setdefault(
+                body["id"], {"id": body["id"], "type": "compaction", "sessionID": session_id}
+            )
+            return self.compactions[body["id"]]
         assert method == "GET", "The console must not submit model work while reading."
         self.requests.append((method, path))
+        if path == "/api/model":
+            return self.models
+        if path == "/api/model/default":
+            return {"id": "test-model", "providerID": "test"}
+        if path.endswith("/context"):
+            session_id = path.split("/")[3]
+            return self.contexts.get(session_id, self.messages[session_id])
         params = params or {}
         offset = int(params.get("cursor", 0))
         if path == "/api/session":
@@ -460,6 +480,7 @@ async def test_staged_module_console_assets_are_served_from_self(console):
         "console.js",
         "console-conversations.js",
         "console-knowledge.js",
+        "console-context.js",
     ):
         response = await console.client.get("/assets/" + asset)
         assert response.status == 200

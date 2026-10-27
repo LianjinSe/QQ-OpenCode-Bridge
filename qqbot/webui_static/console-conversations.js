@@ -1,6 +1,6 @@
 export function createConversationsPage({
   api, $, esc, number, date, ms, svg, avatarImage, userAvatar, empty, heading,
-  keepDetails, pill, unfinished, toast, onOpenJob,
+  keepDetails, pill, unfinished, toast, onOpenJob, sessionContext,
 }) {
   const state = {
     items: [], selected: null, jobs: [], next: null, more: false, query: '',
@@ -30,7 +30,7 @@ export function createConversationsPage({
   }
   function feed() {
     const conversation = state.items.find(item => item.conversation === state.selected);
-    return `<div class="feed-toolbar"><button class="text-button mobile-back" data-action="back-conversations">${svg('back')}返回会话列表</button><div class="feed-heading"><div><h2>${esc(conversation?.title || '会话记录')}</h2><p>你的消息在左，助手的回复在右</p></div><span class="pill">${number(state.jobs.length)} 个任务已加载</span></div></div><div class="chat-history" id="chat-history" tabindex="0" role="log" aria-label="聊天记录">${state.next ? `<button class="button small load-older" data-action="older-jobs">${svg('up')}加载更早记录</button>` : ''}${[...state.jobs].reverse().map(jobView).join('') || empty('这个会话暂无任务')}<div class="chat-end" id="chat-end" aria-hidden="true"></div></div><button class="button jump-latest" id="jump-latest" data-action="latest" hidden>${svg('latest')}最新消息</button>`;
+    return `<div class="feed-toolbar"><button class="text-button mobile-back" data-action="back-conversations">${svg('back')}返回会话列表</button><div class="feed-heading"><div><h2>${esc(conversation?.title || '会话记录')}</h2><p>你的消息在左，助手的回复在右</p></div><span class="pill">${number(state.jobs.length)} 个任务已加载</span></div>${sessionContext.render(conversation?.current_session_id)}</div><div class="chat-history" id="chat-history" tabindex="0" role="log" aria-label="聊天记录">${state.next ? `<button class="button small load-older" data-action="older-jobs">${svg('up')}加载更早记录</button>` : ''}${[...state.jobs].reverse().map(jobView).join('') || empty('这个会话暂无任务')}<div class="chat-end" id="chat-end" aria-hidden="true"></div></div><button class="button jump-latest" id="jump-latest" data-action="latest" hidden>${svg('latest')}最新消息</button>`;
   }
   function position() {
     const node = $('#chat-history');
@@ -79,6 +79,7 @@ export function createConversationsPage({
     if (!state.active || epoch !== state.epoch || selected !== state.selected || !$('#conversation-list')) return;
     state.jobs = result.items; state.next = result.next;
     $('#conversation-list').innerHTML = list(); $('#chat-layout').classList.add('has-selection'); update('latest');
+    await sessionContext.refresh();
   }
   async function olderJobs() {
     const selected = state.selected, cursor = state.next, epoch = state.epoch;

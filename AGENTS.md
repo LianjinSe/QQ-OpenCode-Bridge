@@ -44,6 +44,8 @@ Store 语义接口访问数据。完成任务与出站入队保持同一事务�
 - 个人记忆与文档知识独立；私人知识只在管理员私聊可读，群聊必须显式开放。
 - 文档不能授权调用。NapCat 实际调用仅管理员，群中仅当前群且接口实际定义 group_id。
 - QQ 只转发公开正文。WebUI 读取不得创建模型任务、迁移状态库或自动切换会话映射。
+- 完成回复和附件交付后不自动戳发起人；旧队列中 ready 的完成戳一戳在启动时标为 blocked，已尝试回执保留，不自动补发。
+- WebUI 上下文按最近一次有效调用估算，包含缓存、输出和思考，不使用会话累计消耗；压缩后没有新用量时显示等待。手动压缩仅管理员操作，校验 CSRF、桥接会话归属、未完成任务、执行树及待处理请求；请求编号幂等，区分受理、执行结果和未确认，不自动重试。
 - 新增后端状态在相应 WebUI 页面反映。静态样式和交互限定于 `#qqbot-console`。
 
 ## 验证与发布
@@ -51,7 +53,7 @@ Store 语义接口访问数据。完成任务与出站入队保持同一事务�
 Python 3.12+，现有 `.venv`；按风险使用最小相关检查，避免重复全量或真实 QQ 写入测试。
 权限看 `test_group_permissions.py` / `test_superadmin.py`；交付与恢复看 `test_delivery*`、
 `test_progress.py`、`test_recovery.py`；记忆看 `test_memory*`；知识库看 `test_knowledge*`；
-原生 QQ 看 `test_napcat*`；管理台看 `test_webui.py`；部署路径看 `test_portability.py`。
+原生 QQ 看 `test_napcat*`；管理台看 `test_webui.py` / `test_webui_context.py`；部署路径看 `test_portability.py`。
 
 ```bash
 .venv/bin/python -m pytest -q tests/test_portability.py tests/test_architecture.py

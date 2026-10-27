@@ -256,6 +256,18 @@ class DashboardData:
                     preview=(latest["memory_source_text"] or latest["text"])[:160],
                     status=latest["status"],
                     latest_job=latest["id"],
+                    current_session_id=(
+                        current[0]
+                        if (
+                            current := db.execute(
+                                "SELECT session_id FROM group_sessions WHERE conversation=?"
+                                if target.get("group_id")
+                                else "SELECT session_id FROM sessions WHERE context=?",
+                                (row["conversation"],),
+                            ).fetchone()
+                        )
+                        else None
+                    ),
                 )
                 result.append(item)
         return self.clean({"items": result, "more": len(rows) > limit})

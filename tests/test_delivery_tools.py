@@ -548,7 +548,7 @@ async def test_immediate_multiple_submissions_all_arrive_once(harness, group, ba
         assert duplicate["deduplicated"] is True
         op.finish(sid, "图片已准备好")
         await eventually(lambda: bridge.store.job(job["id"])["status"] == "done")
-        await eventually(lambda: len(nap.pokes) == 1)
+        assert nap.pokes == []
         assert [item["bytes"] for item in nap.media_sent] == expected
         assert all(item["kind"] == "image" for item in nap.media_sent)
         target, value = ("user_id", "11") if group is None else ("group_id", "22")

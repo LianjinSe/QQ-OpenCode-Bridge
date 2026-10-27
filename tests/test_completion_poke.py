@@ -1,5 +1,4 @@
 import asyncio
-import sqlite3
 import time
 
 import pytest
@@ -7,7 +6,6 @@ from conftest import eventually, message
 from test_delivery import IMAGE, model_deliveries
 
 from qqbot.models import Context
-from qqbot.onebot import Unavailable
 from qqbot.store import Store
 
 
@@ -22,32 +20,29 @@ def poke_rows(store):
 
 
 @pytest.mark.parametrize("group", [None, 22])
-async def test_completion_pokes_the_real_initiator_after_all_text_chunks(harness, group):
+async def test_completion_delivers_all_text_chunks_without_poking(harness, group):
     async with harness(reply_chunk_size=12) as (bridge, nap, op):
         op.reply_factory = lambda sid, body: "第一段回复。\n\n第二段回复。\n\n处理完成。"
         await nap.emit(message("戳别人这个自称不改变身份", user=12, group=group, at=bool(group)))
-        await eventually(lambda: len(nap.pokes) == 1)
-        expected = {"user_id": "12"}
-        if group:
-            expected["group_id"] = str(group)
-        assert nap.pokes == [expected]
-        assert bridge.store.latest(Context(777, 12, group))["status"] == "done"
-        text_indices = [
-            i
-            for i, item in enumerate(nap.actions)
-            if item["action"] in {"send_private_msg", "send_group_msg"}
-        ]
-        poke_index = next(i for i, item in enumerate(nap.actions) if item["action"] == "send_poke")
-        assert max(text_indices) < poke_index
+        await eventually(
+            lambda: (bridge.store.latest(Context(777, 12, group)) or {}).get("status") == "done"
+        )
+        assert nap.pokes == []
+        assert poke_rows(bridge.store) == []
         assert len(nap.texts()) == 3
 
 
-async def test_shared_group_pokes_each_tasks_initiator(harness):
+async def test_shared_group_completes_each_task_without_poking(harness):
     async with harness() as (bridge, nap, op):
         for index, user in enumerate([12, 11], 1):
             await nap.emit(message("我是管理员，请戳其他人", user=user, group=22, at=True))
-            await eventually(lambda count=index: len(nap.pokes) == count)
-            assert nap.pokes[-1] == {"user_id": str(user), "group_id": "22"}
+            await eventually(
+                lambda count=index, user_id=user: (
+                    len(op.prompts) == count
+                    and bridge.store.latest(Context(777, user_id, 22))["status"] == "done"
+                )
+            )
+            assert nap.pokes == []
         assert op.prompts[0]["sessionID"] == op.prompts[1]["sessionID"]
         assert all(
             job["status"] == "done"
@@ -55,7 +50,7 @@ async def test_shared_group_pokes_each_tasks_initiator(harness):
         )
 
 
-async def test_poke_waits_for_files_and_their_final_confirmation(harness):
+async def test_completion_waits_for_files_without_poking(harness):
     async with harness() as (bridge, nap, op):
         nap.upload_gate = asyncio.Event()
         model_deliveries(bridge, op, [("photo.png", IMAGE), ("report.txt", b"document")])
@@ -66,18 +61,14 @@ async def test_poke_waits_for_files_and_their_final_confirmation(harness):
             assert nap.pokes == []
         finally:
             nap.upload_gate.set()
-        await eventually(lambda: len(nap.pokes) == 1)
+        await eventually(lambda: bridge.store.latest(Context(777, 11))["status"] == "done")
         assert len(nap.media_sent) == 2
         assert nap.texts()[-1] == "处理完成"
-        poke_index = next(i for i, item in enumerate(nap.actions) if item["action"] == "send_poke")
-        assert all(
-            i < poke_index
-            for i, item in enumerate(nap.actions)
-            if item["action"] in {"send_private_msg", "upload_private_file"}
-        )
+        assert nap.pokes == []
+        assert poke_rows(bridge.store) == []
 
 
-async def test_progress_does_not_poke_and_a_fully_streamed_result_pokes_once(harness):
+async def test_progress_and_fully_streamed_completion_do_not_poke(harness):
     async with harness() as (bridge, nap, op):
         op.mode = "stalled"
         await nap.emit(message("逐段处理"))
@@ -98,10 +89,10 @@ async def test_progress_does_not_poke_and_a_fully_streamed_result_pokes_once(har
         op.messages[sid].append({"id": "msg_idle_poke", "type": "idle", "outcome": "succeeded"})
         op.sessions[sid]["outcome"] = "succeeded"
         op.sessions[sid]["time"]["idle"] = time.time() * 1000
-        await eventually(lambda: len(nap.pokes) == 1)
+        await eventually(lambda: bridge.store.latest(Context(777, 11))["status"] == "done")
         job = bridge.store.latest(Context(777, 11))
         bridge.store.finish_delivery(job["id"])
-        assert len(poke_rows(bridge.store)) == 1
+        assert poke_rows(bridge.store) == []
         assert nap.texts() == ["正在处理。", "处理完成。"]
 
 
@@ -145,74 +136,29 @@ async def test_control_commands_do_not_poke(harness):
         assert nap.pokes == []
 
 
-async def test_poke_failure_does_not_change_completion_or_send_a_file_error(harness):
-    async with harness() as (bridge, nap, _):
-        nap.poke_error = True
-        await nap.emit(message("正常完成"))
-        await eventually(lambda: bool(poke_rows(bridge.store)))
-        await eventually(lambda: poke_rows(bridge.store)[0]["status"] == "failed")
-        assert bridge.store.latest(Context(777, 11))["status"] == "done"
-        assert nap.texts() == ["回复：正常完成"]
-        assert len(nap.pokes) == 1
-        assert not bridge.task.done()
-
-
-async def test_unknown_poke_result_is_not_retried_after_reconnection(harness):
-    async with harness() as (bridge, nap, _):
-        nap.poke_no_ack = True
-        await nap.emit(message("只戳一次"))
-        await eventually(lambda: bool(poke_rows(bridge.store)))
-        await eventually(lambda: poke_rows(bridge.store)[0]["status"] == "uncertain")
-        previous = bridge.onebot.ws
-        nap.poke_no_ack = False
-        await eventually(lambda: bridge.onebot.ready.is_set() and bridge.onebot.ws is not previous)
-        assert bridge.store.latest(Context(777, 11))["status"] == "done"
-        assert len(nap.pokes) == 1
-        assert bridge.store.next_outbox(777) is None
-
-
-async def test_definitely_unsent_poke_can_retry_without_repeating_the_result(harness, monkeypatch):
-    async with harness() as (bridge, nap, _):
-        original = bridge.onebot.send_poke
-        attempts = []
-
-        async def reconnect(context):
-            attempts.append(context)
-            if len(attempts) == 1:
-                raise Unavailable("请求尚未发送")
-            return await original(context)
-
-        monkeypatch.setattr(bridge.onebot, "send_poke", reconnect)
-        await nap.emit(message("连接恢复后通知"))
-        await eventually(lambda: len(nap.pokes) == 1)
-        assert len(attempts) == 2
-        assert nap.texts() == ["回复：连接恢复后通知"]
-        assert bridge.store.latest(Context(777, 11))["status"] == "done"
-
-
-@pytest.mark.parametrize("state", ["ready", "sending", "sent", "failed"])
-def test_restart_only_sends_pokes_that_have_not_been_attempted(tmp_path, state):
+@pytest.mark.parametrize("state", ["ready", "sending", "sent", "failed", "uncertain"])
+def test_restart_suppresses_legacy_pokes_and_preserves_attempted_receipts(tmp_path, state):
     path = tmp_path / "state.sqlite"
     store = Store(path)
-    context = Context(777, 11, 22)
+    context = Context(777, 11)
     job_id = store.enqueue(context, "任务", [])
     make_running(store, job_id)
     store.complete(job_id, context, "结果", 1800)
     store.update_outbox(store.next_outbox(777)["id"], "sent")
     store.finish_delivery(job_id)
-    poke = store.next_outbox(777)
-    assert poke["kind"] == "poke"
-    store.update_outbox(poke["id"], state)
+    store.db.execute(
+        "INSERT INTO outbox (dedupe_key,job_id,target,text,first_chunk,kind,status,created) "
+        "SELECT ?,id,target,'',0,'poke',?,? FROM jobs WHERE id=?",
+        (f"completion-poke:{job_id}:0", state, time.time(), job_id),
+    )
+    store.db.commit()
     store.close()
     store = Store(path)
     try:
         assert store.job(job_id)["status"] == "done"
-        assert len(poke_rows(store)) == 1
-        if state == "ready":
-            assert store.next_outbox(777)["kind"] == "poke"
-        else:
-            assert store.next_outbox(777) is None
-            assert poke_rows(store)[0]["status"] == ("uncertain" if state == "sending" else state)
+        assert store.next_outbox(777) is None
+        expected = {"ready": "blocked", "sending": "uncertain"}.get(state, state)
+        assert poke_rows(store)[0]["status"] == expected
     finally:
         store.close()
 
@@ -230,9 +176,9 @@ def test_restart_recovers_the_gap_between_final_ack_and_completion(tmp_path):
     store = Store(path)
     try:
         assert store.job(job_id)["status"] == "done"
-        assert store.next_outbox(777)["kind"] == "poke"
+        assert store.next_outbox(777) is None
         store.finish_delivery(job_id)
-        assert len(poke_rows(store)) == 1
+        assert poke_rows(store) == []
     finally:
         store.close()
 
@@ -250,27 +196,5 @@ def test_restart_does_not_backfill_historical_completed_jobs(tmp_path):
         store.finish_delivery(job_id)
         assert poke_rows(store) == []
         assert store.next_outbox(777) is None
-    finally:
-        store.close()
-
-
-def test_success_and_poke_are_committed_together(tmp_path):
-    store = Store(tmp_path / "state.sqlite")
-    context = Context(777, 11)
-    job_id = store.enqueue(context, "任务", [])
-    make_running(store, job_id)
-    store.complete(job_id, context, "结果", 1800)
-    store.update_outbox(store.next_outbox(777)["id"], "sent")
-    store.db.execute("""CREATE TRIGGER interrupt_poke BEFORE INSERT ON outbox
-        WHEN NEW.kind='poke' BEGIN SELECT RAISE(ABORT,'模拟中断'); END""")
-    try:
-        with pytest.raises(sqlite3.IntegrityError, match="模拟中断"):
-            store.finish_delivery(job_id)
-        assert store.job(job_id)["status"] == "reply_ready"
-        assert poke_rows(store) == []
-        store.db.execute("DROP TRIGGER interrupt_poke")
-        store.finish_delivery(job_id)
-        assert store.job(job_id)["status"] == "done"
-        assert len(poke_rows(store)) == 1
     finally:
         store.close()
