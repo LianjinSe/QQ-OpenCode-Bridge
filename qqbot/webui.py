@@ -19,8 +19,10 @@ from .knowledge import MAX_UPLOAD, KnowledgeError
 from .models import Context
 from .opencode import ApiError, ProtocolError
 from .webui_auth import COOKIE_NAME, SESSION_SECONDS, AdminAuth
+from .webui_capabilities import CapabilitiesConsole
 from .webui_context import ContextConsole
 from .webui_data import UNFINISHED, DashboardData
+from .webui_export import ExportConsole
 from .webui_knowledge import KnowledgeConsole
 from .webui_sessions import SessionConsole
 
@@ -157,6 +159,8 @@ class AdminDashboard:
         app.add_routes(KnowledgeConsole(self).routes())
         app.add_routes(ContextConsole(self).routes())
         app.add_routes(SessionConsole(self).routes())
+        app.add_routes(ExportConsole(self).routes())
+        app.add_routes(CapabilitiesConsole(self).routes())
         app.add_routes(
             [
                 web.get("/", self.index, name="index"),
@@ -378,6 +382,8 @@ class AdminDashboard:
             raise web.HTTPForbidden(
                 text="只能切换到同一聊天中可复用的会话；私密独立会话不能用于群共享"
             )
+        if candidate.get("archived"):
+            raise web.HTTPConflict(text="请先恢复归档会话，再切换映射")
         async with self.control_lock:
             if mapping["session_id"] != body.get("expected_current"):
                 raise web.HTTPConflict(text="当前映射已有变化，请刷新后重试")
@@ -390,6 +396,9 @@ class AdminDashboard:
                 for root in {mapping["session_id"], session_id} - {None}:
                     if await client.belongs_to(active_id, root):
                         raise web.HTTPConflict(text="原会话或目标会话仍在执行，请等待结束后切换")
+            target_info = await client.get_session(session_id)
+            if target_info.get("archived") or (target_info.get("time") or {}).get("archived"):
+                raise web.HTTPConflict(text="目标会话已经归档，请恢复后再切换")
             context = Context(**mapping["target"])
             # Recheck after network I/O. No await may separate this check from the update.
             if self.store.conversation_jobs(context):

@@ -66,6 +66,7 @@ def context_usage(info, messages, models, default_model, inbox):
         used = inputs + outputs
     return {
         "id": info["id"],
+        "title": info.get("title", info["id"]),
         "used_tokens": used,
         "input_tokens": inputs,
         "output_tokens": outputs,

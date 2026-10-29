@@ -728,6 +728,8 @@ class DashboardData:
                 {
                     "id": session_id,
                     "title": info.get("title", session_id),
+                    "managed": not bool(info.get("parentID")),
+                    "archived": bool(info.get("archived") or info.get("time", {}).get("archived")),
                     "messages": [self.message(m) for m in reversed(page["data"])],
                     "next": page.get("cursor", {}).get("next"),
                     "children": [

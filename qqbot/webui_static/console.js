@@ -2,14 +2,15 @@
 'use strict';
 import { createConversationsPage } from './console-conversations.js';
 import { createKnowledgePage } from './console-knowledge.js';
-import { createSessionContext } from './console-context.js';
+import { createSessionContext, createSessionTools } from './console-context.js';
 const state = {
   auth: null, view: 'overview', overview: null, memoryQuery: '', memoryKind: '',
   memorySubject: '', memoryOffset: 0, memoryTotal: 0, memories: [], queueHistory: false,
   queueBefore: null, queueItems: [], queueNext: null, detailJob: null, detailSession: null,
   detailData: null, detailTab: 'run', detailVersion: 0, viewVersion: 0, refreshing: false,
   restarting: null, sessionIndex: null, sessionQuery: '', sidebarCollapsed: loadSidebarPreference(),
-  forkRequests: new Map(),
+  forkRequests: new Map(), sessionArchived: false, detailManaged: false,
+  pluginCategory: 'all', capabilityData: null, capabilitySignature: null,
 };
 const uiRoot = document.getElementById('qqbot-console');
 const $ = (selector, root = uiRoot) => root.querySelector(selector);
@@ -18,7 +19,7 @@ const number = value => new Intl.NumberFormat('zh-CN').format(value || 0);
 const date = (value, full = false) => value ? new Date(value * 1000).toLocaleString('zh-CN', {timeZone:'Asia/Shanghai',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',...(full ? {year:'numeric',second:'2-digit'} : {})}) : '未记录';
 const ms = value => value == null ? '未记录' : value < 1000 ? `${Math.round(value)} ms` : value < 60000 ? `${(value / 1000).toFixed(1)} s` : `${Math.floor(value / 60000)} 分 ${Math.round(value % 60000 / 1000)} 秒`;
 const json = value => typeof value === 'string' ? value : JSON.stringify(value, null, 2);
-const names = {overview:'概览',conversations:'会话',sessions:'会话映射',queue:'任务队列',memories:'记忆库',knowledge:'知识库',system:'系统管理'};
+const names = {overview:'概览',conversations:'会话',sessions:'会话映射',queue:'任务队列',memories:'记忆库',knowledge:'知识库',capabilities:'插件与能力',system:'系统管理'};
 // Lucide icons (ISC); source and licence are bundled with the console.
 const icons = {
   knowledge: '<path d="M12 7v14M3 3h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5v16h-5a4 4 0 0 0-4 2 4 4 0 0 0-4-2H3z"/>',
@@ -52,6 +53,7 @@ const icons = {
   "signal": "<path d=\"M16.247 7.761a6 6 0 0 1 0 8.478\" />\n  <path d=\"M19.075 4.933a10 10 0 0 1 0 14.134\" />\n  <path d=\"M4.925 19.067a10 10 0 0 1 0-14.134\" />\n  <path d=\"M7.753 16.239a6 6 0 0 1 0-8.478\" />\n  <circle cx=\"12\" cy=\"12\" r=\"2\" />",
   "next": "<path d=\"M5 12h14\" />\n  <path d=\"m12 5 7 7-7 7\" />"
 };
+icons.capabilities = icons.server;
 const svg = key => `<svg class="ui-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${icons[key] || ''}</svg>`;
 const USER_AVATAR = '/assets/favicon.svg?v=69cf9a0949';
 const ASSISTANT_AVATAR = '/assets/assistant-avatar.svg?v=public1';
@@ -90,6 +92,7 @@ const statusNames = {queued:'排队中',preparing:'准备中',submitting:'提交
 const unfinished = new Set(['queued','preparing','submitting','running','waiting','cancelling','reply_ready','delivering']);
 const pill = status => `<span class="pill ${['done','sent','completed','active'].includes(status) ? 'good' : ['failed','send_failed','send_uncertain','uncertain','error'].includes(status) ? 'bad' : ['running','submitting','preparing','delivering'].includes(status) ? 'blue' : 'warm'}">${esc(statusNames[status] || status)}</span>`;
 const sessionContext = createSessionContext({api, $, esc, number, date, dialog, toast});
+const sessionTools = createSessionTools({api, $, esc, dialog, toast, onAuthLost:showLogin, onChanged:async id => { await navigate(state.view,true); if (state.detailSession === id && $('#detail-dialog').open) await openSession(id); }});
 const conversations = createConversationsPage({api, $, esc, number, date, ms, svg, avatarImage, userAvatar, empty, heading, keepDetails, pill, unfinished, toast, sessionContext, onOpenJob: id => openJob(id)});
 
 let toastTimer, searchTimer;
@@ -108,8 +111,8 @@ async function api(path, body) {
 }
 function showLogin() {
   conversations.leave(); knowledge.leave();
-  sessionContext.clear();
-  state.forkRequests.clear();
+  sessionContext.clear(); sessionTools.clear();
+  state.forkRequests.clear(); state.capabilityData = state.capabilitySignature = null; state.pluginCategory = 'all';
   state.auth = null; state.viewVersion++; state.detailVersion++;
   $('#loading').hidden = true; $('#app').hidden = true; $('#login').hidden = false;
   $('#main').replaceChildren(); $('#detail-content').replaceChildren();
@@ -141,8 +144,19 @@ function empty(text, icon = 'conversations') { return `<div class="empty">${svg(
 function keepDetails(node, html) {
   const opened = new Set([...node.querySelectorAll('details[open][data-key]')].map(el => el.dataset.key));
   const top = node.scrollTop;
+  const scrolls = new Map([...node.querySelectorAll('[data-scroll-key]')].map(el => {
+    const bounds = el.getBoundingClientRect();
+    const anchor = [...el.querySelectorAll('[data-capability-id]')].find(row => row.getBoundingClientRect().bottom > bounds.top + 1);
+    return [el.dataset.scrollKey, {top:el.scrollTop,left:el.scrollLeft,anchor:anchor?.dataset.capabilityId,offset:anchor ? anchor.getBoundingClientRect().top - bounds.top : 0}];
+  }));
   node.innerHTML = html;
   node.querySelectorAll('details[data-key]').forEach(el => { el.open = opened.has(el.dataset.key); });
+  node.querySelectorAll('[data-scroll-key]').forEach(el => {
+    const saved = scrolls.get(el.dataset.scrollKey); if (!saved) return;
+    el.scrollTop = saved.top; el.scrollLeft = saved.left;
+    const anchor = [...el.querySelectorAll('[data-capability-id]')].find(row => row.dataset.capabilityId === saved.anchor);
+    if (anchor) el.scrollTop += anchor.getBoundingClientRect().top - el.getBoundingClientRect().top - saved.offset;
+  });
   node.scrollTop = top;
 }
 function targetLabel(job) { return job.target.group_id ? `群 ${job.target.group_id} · QQ ${job.target.user_id}` : `私聊 ${job.target.user_id}`; }
@@ -191,29 +205,92 @@ async function memoriesPage() {
   const enabled = await fetchMemories();
   return heading('记忆库', '个人资料、助手的信息、共同经历与日记，按来源和范围查看。') + `${!enabled ? '<div class="notice">当前未启用个人记忆。</div>' : ''}<div class="toolbar"><input class="search" id="memory-search" aria-label="搜索记忆" placeholder="搜索被记住的内容…" value="${esc(state.memoryQuery)}"><select id="memory-subject" aria-label="记忆主体"><option value="">全部主体</option>${Object.entries(subjectNames).map(([key,value]) => `<option value="${key}" ${state.memorySubject === key ? 'selected' : ''}>${value}</option>`).join('')}</select><select id="memory-kind" aria-label="记忆类型"><option value="">全部类型</option>${Object.entries(kindNames).map(([key,value]) => `<option value="${key}" ${state.memoryKind === key ? 'selected' : ''}>${value}</option>`).join('')}</select><span class="count-note" id="memory-count">共 ${number(state.memoryTotal)} 条</span></div><div id="memory-results">${memoryResults()}</div><div id="memory-more">${memoryMore()}</div><p class="intro-note">仅显示当前账号的有效或待保存记忆。已遗忘内容不在此展示；过期的短期状态单独标注。</p>`;
 }
-function auditName(action) { return ({login:'登录管理台',password_changed:'修改账号密码',restart_requested:'请求重启桥接',cancel_requested:'请求取消任务',mapping_switched:'切换会话映射',compaction_requested:'请求压缩会话',compaction_unconfirmed:'压缩请求未确认',session_fork_created:'创建会话分支',session_fork_switched:'创建分支并切换',session_fork_unconfirmed:'分支创建结果未确认'})[action] || action; }
+function auditName(action) { return ({login:'登录管理台',password_changed:'修改账号密码',restart_requested:'请求重启桥接',cancel_requested:'请求取消任务',mapping_switched:'切换会话映射',compaction_requested:'请求压缩会话',compaction_unconfirmed:'压缩请求未确认',session_fork_created:'创建会话分支',session_fork_switched:'创建分支并切换',session_fork_unconfirmed:'分支创建结果未确认',session_model_changed:'切换会话模型',session_properties_changed:'修改会话属性',session_exported:'导出会话'})[action] || action; }
 function sessionRows() {
   const query = state.sessionQuery.toLowerCase();
-  const items = state.sessionIndex.items.filter(item => `${item.title} ${item.id} ${item.conversation}`.toLowerCase().includes(query));
-  return items.length ? `<div class="table-scroll"><table class="task-table"><thead><tr><th>OpenCode 会话</th><th>聊天来源</th><th>标记</th><th>操作</th></tr></thead><tbody>${items.map(item => `<tr><td><button class="text-button task-text" data-action="session" data-id="${esc(item.id)}">${esc(item.title)}</button><div class="technical-id">${esc(item.id)}</div><div class="task-sub">${number(item.tasks)} 个桥接任务 · ${date(item.updated)}</div></td><td class="muted">${esc(item.conversation)}</td><td><div class="tags">${item.current ? '<span class="pill good">当前映射</span>' : '<span class="pill">历史会话</span>'}${item.isolated ? '<span class="pill warm">主人群聊独立</span>' : ''}${item.archived ? '<span class="pill">已归档</span>' : ''}</div></td><td><button class="text-button" data-action="session" data-id="${esc(item.id)}">查看记录 ${svg('open')}</button></td></tr>`).join('')}</tbody></table></div>` : empty('没有匹配的历史会话','sessions');
+  const items = state.sessionIndex.items.filter(item => (!item.archived || item.current || state.sessionArchived) && `${item.title} ${item.id} ${item.conversation}`.toLowerCase().includes(query));
+  return items.length ? `<div class="table-scroll"><table class="task-table"><thead><tr><th>OpenCode 会话</th><th>聊天来源</th><th>标记</th><th>操作</th></tr></thead><tbody>${items.map(item => `<tr><td><button class="text-button task-text" data-action="session" data-id="${esc(item.id)}">${esc(item.title)}</button><div class="technical-id">${esc(item.id)}</div><div class="task-sub">${number(item.tasks)} 个桥接任务 · ${date(item.updated)}</div></td><td class="muted">${esc(item.conversation)}</td><td><div class="tags">${item.current ? '<span class="pill good">当前映射</span>' : '<span class="pill">历史会话</span>'}${item.isolated ? '<span class="pill warm">主人群聊独立</span>' : ''}${item.archived ? '<span class="pill">已归档</span>' : ''}</div></td><td><div class="session-row-actions"><button class="text-button" data-action="session" data-id="${esc(item.id)}">查看记录 ${svg('open')}</button><button class="text-button" data-action="session-model" data-id="${esc(item.id)}">模型</button><button class="text-button" data-action="session-rename" data-id="${esc(item.id)}">改名</button><button class="text-button" data-action="session-export" data-id="${esc(item.id)}">导出</button><button class="text-button" data-action="session-archive" data-id="${esc(item.id)}" ${item.current && !item.archived ? 'disabled' : ''}>${item.archived ? '恢复' : '归档'}</button></div></td></tr>`).join('')}</tbody></table></div>` : empty('没有匹配的历史会话','sessions');
 }
 async function sessionsPage() {
   const index = await api('/sessions'); state.sessionIndex = index;
-  return heading('会话映射', '查看全部桥接会话，包括已切换、已归档和主人群聊独立会话。') + `${index.warning ? `<div class="notice">${esc(index.warning)}</div>` : ''}<section class="panel"><div class="panel-heading"><h3 class="inline-heading">QQ 聊天 ${svg('next')} 当前 OpenCode 会话</h3><small>切换保留所有原始历史</small></div><div class="table-scroll"><table class="task-table"><thead><tr><th>聊天</th><th>当前映射</th><th>操作</th></tr></thead><tbody>${index.mappings.map(item => `<tr><td>${esc(item.title)}<div class="task-sub">${esc(item.conversation)}</div></td><td>${item.session_id ? `<button class="text-button technical-id" data-action="session" data-id="${esc(item.session_id)}">${esc(item.session_id)}</button>` : '<span class="muted">下次任务创建新会话</span>'}</td><td><button class="button small" data-action="mapping" data-id="${esc(item.conversation)}">切换映射</button></td></tr>`).join('')}</tbody></table></div></section><div class="toolbar"><input class="search" id="session-search" aria-label="搜索历史会话" placeholder="搜索会话名称、QQ、群号或 Session ID" value="${esc(state.sessionQuery)}"><span class="count-note">${number(index.items.length)} 个会话${index.complete ? '' : '（当前已加载）'}</span></div><section class="panel"><div class="panel-heading"><h3>全部历史会话</h3><small>OpenCode 原始记录按需读取</small></div><div id="session-rows">${sessionRows()}</div></section>`;
+  return heading('会话映射', '查看全部桥接会话，包括已切换、已归档和主人群聊独立会话。') + `${index.warning ? `<div class="notice">${esc(index.warning)}</div>` : ''}<section class="panel"><div class="panel-heading"><h3 class="inline-heading">QQ 聊天 ${svg('next')} 当前 OpenCode 会话</h3><small>切换保留所有原始历史</small></div><div class="table-scroll"><table class="task-table"><thead><tr><th>聊天</th><th>当前映射</th><th>操作</th></tr></thead><tbody>${index.mappings.map(item => `<tr><td>${esc(item.title)}<div class="task-sub">${esc(item.conversation)}</div></td><td>${item.session_id ? `<button class="text-button technical-id" data-action="session" data-id="${esc(item.session_id)}">${esc(item.session_id)}</button>` : '<span class="muted">下次任务创建新会话</span>'}</td><td><button class="button small" data-action="mapping" data-id="${esc(item.conversation)}">切换映射</button></td></tr>`).join('')}</tbody></table></div></section><div class="toolbar"><input class="search" id="session-search" aria-label="搜索历史会话" placeholder="搜索会话名称、QQ、群号或 Session ID" value="${esc(state.sessionQuery)}"><button class="button small" id="session-archive-toggle" data-action="toggle-archives" aria-pressed="${state.sessionArchived}">${state.sessionArchived ? '隐藏已归档' : '显示已归档'}</button><span class="count-note">${number(index.items.length)} 个会话${index.complete ? '' : '（当前已加载）'}</span></div><section class="panel"><div class="panel-heading"><h3>全部历史会话</h3><small>OpenCode 原始记录按需读取</small></div><div id="session-rows">${sessionRows()}</div></section>`;
 }
 async function mappingDialog(conversation) {
   state.sessionIndex = await api('/sessions');
   const mapping = state.sessionIndex.mappings.find(item => item.conversation === conversation);
   const candidates = state.sessionIndex.items.filter(item => item.conversation === conversation && item.eligible);
   if (!mapping || !candidates.length) { toast('这个聊天没有可切换的历史会话'); return; }
-  dialog(`<h2 id="action-title">切换会话分支</h2><p>${esc(mapping.title)}。后续新任务将接续所选会话的历史，可切回原会话。当前有未完成任务时无法切换；主人群聊独立会话不用于群共享。</p><form id="mapping-form" data-conversation="${esc(conversation)}" data-view="${esc(state.view)}" data-expected="${esc(mapping.session_id || '')}"><label>目标 OpenCode 会话<select name="session_id" class="search" required>${candidates.map(item => `<option value="${esc(item.id)}" ${item.id === mapping.session_id ? 'selected' : ''}>${esc(item.title)} · ${item.id.slice(-10)}${item.fork_of ? '（分支）' : '（原会话）'}${item.current ? '（当前）' : ''}</option>`).join('')}</select></label><div class="error" id="mapping-error" role="alert"></div><div class="dialog-actions"><button type="button" class="button" data-action="close-action">取消</button><button type="submit" class="primary">确认切换</button></div></form>`);
+  dialog(`<h2 id="action-title">切换会话分支</h2><p>${esc(mapping.title)}。后续新任务将接续所选会话的历史，可切回原会话。当前有未完成任务时无法切换；主人群聊独立会话不用于群共享。</p><form id="mapping-form" data-conversation="${esc(conversation)}" data-view="${esc(state.view)}" data-expected="${esc(mapping.session_id || '')}"><label>目标 OpenCode 会话<select name="session_id" class="search" required>${candidates.map(item => `<option value="${esc(item.id)}" ${item.id === mapping.session_id ? 'selected' : ''} ${item.archived ? 'disabled' : ''}>${esc(item.title)} · ${item.id.slice(-10)}${item.fork_of ? '（分支）' : '（原会话）'}${item.archived ? '（已归档，需恢复）' : ''}${item.current ? '（当前）' : ''}</option>`).join('')}</select></label><div class="error" id="mapping-error" role="alert"></div><div class="dialog-actions"><button type="button" class="button" data-action="close-action">取消</button><button type="submit" class="primary">确认切换</button></div></form>`);
 }
-function forkDialog(button) {
-  const conversation = button.dataset.conversation, source = button.dataset.id;
-  const key = `${conversation}:${source}`;
+async function forkDialog(button) {
+  const source = button.dataset.id, before = button.dataset.before || null;
+  const index = await api('/sessions');
+  const item = index.items.find(s => s.id === source);
+  if (!item?.eligible) throw new Error('这个会话不能用于 QQ 会话分支');
+  const conversation = item.conversation, mapping = index.mappings.find(m => m.conversation === conversation);
+  if (!mapping) throw new Error('聊天映射已变化，请刷新后重试');
+  const key = JSON.stringify([conversation,source,before,mapping.session_id]);
   if (!state.forkRequests.has(key)) state.forkRequests.set(key, crypto.randomUUID());
-  dialog(`<h2 id="action-title">创建分支并切换？</h2><p>复制当前会话的完整历史，之后的新 QQ 任务将接续新分支。原会话保留，可通过“切换分支”返回。文件目录仍由各分支共用。</p><form id="fork-form" data-conversation="${esc(conversation)}" data-source="${esc(source)}" data-request="${esc(state.forkRequests.get(key))}"><label>分支名称（可选）<input name="title" maxlength="120" autocomplete="off" placeholder="例如：另一种方案"></label><div class="error" id="fork-error" role="alert"></div><div class="dialog-actions"><button type="button" class="button" data-action="close-action">取消</button><button type="submit" class="primary">创建并切换</button></div></form>`);
+  dialog(`<h2 id="action-title">创建分支并切换？</h2><p>${before ? '复制到所选消息之前的历史，不包含该条消息。' : '复制所选会话的完整历史。'}之后的新 QQ 任务将接续新分支。原会话保留，文件目录仍由各分支共用。</p><form id="fork-form" data-conversation="${esc(conversation)}" data-source="${esc(source)}" data-expected="${esc(mapping.session_id || '')}" data-before="${esc(before || '')}" data-key="${esc(key)}" data-request="${esc(state.forkRequests.get(key))}"><label>分支名称（可选）<input name="title" maxlength="120" autocomplete="off" placeholder="例如：另一种方案"></label><div class="error" id="fork-error" role="alert"></div><div class="dialog-actions"><button type="button" class="button" data-action="close-action">取消</button><button type="submit" class="primary">创建并切换</button></div></form>`);
 }
+
+const pluginCategories = {bridge:'QQ 桥接',models:'模型供应商',search:'网页搜索',tools:'工具',prompts:'提示词适配',core:'核心与配置',other:'其他插件'};
+function pluginCategory(item) {
+  const id = item.id || '';
+  if (id.startsWith('opencode.websearch.') || /^qq\.websearch[.-]/.test(id)) return 'search';
+  if (id.startsWith('qq.')) return 'bridge';
+  if (id.startsWith('opencode.provider.') || id.startsWith('a6api.')) return 'models';
+  if (/^opencode\.tools?(?:\.|$)/.test(id)) return 'tools';
+  if (id.startsWith('opencode.prompt.')) return 'prompts';
+  if (id.startsWith('opencode.') || item.source === 'builtin') return 'core';
+  return 'other';
+}
+function capabilityItem(kind, item, result) {
+  const states = {active:'已加载',connected:'已连接',failed:'失败',disabled:'已停用',pending:'连接中',needs_auth:'需要认证',unknown:'未记录'};
+  const status = item.status;
+  const badge = status ? `<span class="pill ${['active','connected'].includes(status) ? 'good' : status === 'failed' ? 'bad' : ''}">${esc(states[status] || status)}</span>` : '';
+  const detail = kind === 'plugins' ? [item.source,item.version,...(item.features || [])].filter(Boolean).join(' · ') : item.description || (kind === 'agents' ? item.mode : '');
+  return `<li class="capability-item" data-capability-id="${esc(kind + ':' + (item.id || item.name))}"><div><strong>${esc(item.name || item.id)}</strong>${badge}${kind === 'search' && item.id === result.search_provider ? '<span class="pill good">当前使用</span>' : ''}</div>${detail ? `<p>${esc(detail)}</p>` : ''}</li>`;
+}
+function pluginRows(items, result) {
+  return Object.entries(pluginCategories).filter(([key]) => state.pluginCategory === 'all' || state.pluginCategory === key).map(([key,label]) => {
+    const group = items.filter(item => pluginCategory(item) === key);
+    return group.length ? `<li class="plugin-group"><h4>${esc(label)}<span>${number(group.length)}</span></h4><ul>${group.map(item => capabilityItem('plugins',item,result)).join('')}</ul></li>` : '';
+  }).join('') || '<li class="capability-empty">这个分类当前没有插件</li>';
+}
+function capabilitySections(result) {
+  const labels = {plugins:'原生插件',mcp:'MCP 连接',skills:'技能',commands:'命令',agents:'Agent',search:'搜索供应商'};
+  return Object.entries(labels).map(([kind,label]) => {
+    const section = result.sections[kind] || {available:false,items:[]};
+    const filters = kind === 'plugins' && section.available ? `<div class="plugin-filters" role="group" aria-label="原生插件分类">${[['all','全部',section.items.length],...Object.entries(pluginCategories).map(([key,name]) => [key,name,section.items.filter(item => pluginCategory(item) === key).length])].filter(([key,,count]) => count || key === 'all' || state.pluginCategory === key).map(([key,name,count]) => `<button type="button" class="plugin-filter" data-action="plugin-category" data-category="${key}" aria-pressed="${state.pluginCategory === key}">${esc(name)}<span>${number(count)}</span></button>`).join('')}</div>` : '';
+    const rows = kind === 'plugins' ? pluginRows(section.items,result) : section.items.map(item => capabilityItem(kind,item,result)).join('');
+    return `<section class="panel capability-panel"><div class="panel-heading"><h3>${esc(label)}</h3><span class="pill ${section.available ? '' : 'bad'}">${section.available ? number(section.items.length) : '暂不可用'}</span></div>${filters}<ul class="capability-list" id="capability-${kind}" data-scroll-key="capability-${kind}">${section.available && section.items.length ? rows : `<li class="capability-empty">${section.available ? '当前未配置或未注册' : '暂时无法读取，稍后刷新重试'}</li>`}</ul></section>`;
+  }).join('');
+}
+async function capabilitiesPage() {
+  const version = state.viewVersion;
+  const result = await api('/capabilities');
+  if (state.view !== 'capabilities' || version !== state.viewVersion) return null;
+  state.capabilityData = result;
+  state.capabilitySignature = JSON.stringify([result.sections,result.search_provider]);
+  return heading('插件与能力','查看当前机器人工作目录中已加载、已注册的能力。') + `<p class="detail-note">目录约 30 秒更新一次，最近读取 <span id="capability-updated">${date(result.updated)}</span>。原生插件按注册名称归类，与 MCP 分开显示。</p><div class="capability-grid" id="capability-grid">${capabilitySections(result)}</div>`;
+}
+async function refreshCapabilities() {
+  const version = state.viewVersion;
+  const result = await api('/capabilities');
+  if (state.view !== 'capabilities' || version !== state.viewVersion || !$('#capability-grid')) return;
+  state.capabilityData = result;
+  const signature = JSON.stringify([result.sections,result.search_provider]);
+  if (signature !== state.capabilitySignature) {
+    const x = window.scrollX, y = window.scrollY;
+    const focused = uiRoot.contains(document.activeElement) && document.activeElement?.matches('.plugin-filter') ? document.activeElement.dataset.category : null;
+    keepDetails($('#capability-grid'),capabilitySections(result));
+    if (focused) [...uiRoot.querySelectorAll('.plugin-filter')].find(button => button.dataset.category === focused)?.focus({preventScroll:true});
+    window.scrollTo(x,y); state.capabilitySignature = signature;
+  }
+  $('#capability-updated').textContent = date(result.updated);
+}
+
 async function systemPage() {
   const [system,overview] = await Promise.all([api('/system'),loadOverview()]);
   const configLabels = {public_url:'访问地址',model:'聊天模型',memory_enabled:'个人记忆',memory_model:'记忆校验模型',embedding_model:'Embedding 模型',rerank_model:'重排模型',max_queued_per_context:'每会话队列上限',execution_timeout:'执行超时（秒）'};
@@ -236,8 +313,8 @@ async function navigate(view, quiet = false) {
   history.replaceState(null,'',`#/${view}`);
   if (!quiet) $('#main').innerHTML = '<div class="empty">正在读取记录…</div>';
   try {
-    const html = await ({overview:overviewPage,conversations:conversations.render,sessions:sessionsPage,queue:queuePage,memories:memoriesPage,knowledge:knowledge.render,system:systemPage})[view]();
-    if (html !== null && state.auth && version === state.viewVersion) { keepDetails($('#main'),html); renderSidebarState(); if (view === 'conversations') { conversations.restore(historyPosition,quiet ? 'preserve' : 'latest'); await sessionContext.refresh(); } if (view === 'knowledge') await knowledge.openPendingDocument(); }
+    const html = await ({overview:overviewPage,conversations:conversations.render,sessions:sessionsPage,queue:queuePage,memories:memoriesPage,knowledge:knowledge.render,capabilities:capabilitiesPage,system:systemPage})[view]();
+    if (html !== null && state.auth && version === state.viewVersion) { const scroll = view === 'capabilities' && quiet ? {x:window.scrollX,y:window.scrollY} : null; keepDetails($('#main'),html); if (scroll) window.scrollTo(scroll.x,scroll.y); renderSidebarState(); if (view === 'conversations') { conversations.restore(historyPosition,quiet ? 'preserve' : 'latest'); await sessionContext.refresh(); } if (view === 'knowledge') await knowledge.openPendingDocument(); }
   } catch (error) {
     if (state.auth && version === state.viewVersion) $('#main').innerHTML = `<div class="notice">${esc(error.message)} <button class="text-button" data-action="refresh">重试</button></div>`;
     connected(false);
@@ -260,8 +337,9 @@ function runMessage(message) {
   const content = text + renderParts(message) + (message.files?.length ? `<div class="attachment-tags">${message.files.map(file => `<span class="pill">附件 · ${esc(file.name || file.filename || file.path || file.type || 'file')}</span>`).join('')}</div>` : '');
   const model = message.model ? (typeof message.model === 'string' ? message.model : [message.model.providerID,message.model.modelID || message.model.id].filter(Boolean).join('/')) : '';
   if (!content && !message.error) return '';
-  if (['user','system','synthetic'].includes(message.type)) return `<details class="run-detail" data-key="msg-${esc(message.id)}"><summary>${esc(label)} · ${message.time?.created ? date(message.time.created / 1000) : ''}</summary><div class="run-detail-body">${content}</div></details>`;
-  return `<article class="run-message"><header class="run-message-header"><span>${esc(label)}</span><span>${message.time?.created ? date(message.time.created / 1000) : ''}</span></header>${content}${message.error ? `<pre class="run-text error">${esc(json(message.error))}</pre>` : ''}${model ? `<p class="model-tag">${esc(model)}</p>` : ''}</article>`;
+  const branchAction = state.detailSession && state.detailManaged && ['user','assistant'].includes(message.type) ? `<div class="message-actions"><button class="text-button" data-action="fork-session" data-id="${esc(state.detailSession)}" data-before="${esc(message.id)}">从此消息前创建分支</button></div>` : '';
+  if (['user','system','synthetic'].includes(message.type)) return `<details class="run-detail" data-key="msg-${esc(message.id)}"><summary>${esc(label)} · ${message.time?.created ? date(message.time.created / 1000) : ''}</summary><div class="run-detail-body">${content}${branchAction}</div></details>`;
+  return `<article class="run-message"><header class="run-message-header"><span>${esc(label)}</span><span>${message.time?.created ? date(message.time.created / 1000) : ''}</span></header>${content}${message.error ? `<pre class="run-text error">${esc(json(message.error))}</pre>` : ''}${model ? `<p class="model-tag">${esc(model)}</p>` : ''}${branchAction}</article>`;
 }
 function detailMetrics(stats, label) {
   if (!stats) return '';
@@ -299,12 +377,13 @@ async function openSession(id, cursor = null) {
   try {
     const result = await api(`/sessions/${encodeURIComponent(id)}${cursor ? '?cursor=' + encodeURIComponent(cursor) : ''}`);
     if (!state.auth || version !== state.detailVersion) return;
+    state.detailManaged = result.managed === true;
     const content = result.messages.map(runMessage).join('');
     if (cursor) {
       $('#session-messages').insertAdjacentHTML('afterbegin',content);
       $('#session-more').innerHTML = result.next ? `<button class="button small load-older" data-action="older-session" data-cursor="${esc(result.next)}">${svg('up')}加载更早消息</button>` : '';
       $('#session-page-note').textContent = '已追加更早消息；上方统计对应首次加载的最近一页。';
-    } else $('#detail-content').innerHTML = `<div class="detail-toolbar">${state.detailJob ? `<button class="button small" data-action="back-job">${svg('back')}返回任务</button>` : ''}<span class="technical-id">${esc(id)}</span></div><h3>${esc(result.title)}</h3>${sessionContext.render(id)}<p class="detail-note">历史会话按原始内容分页读取；包括系统记录、工具输入输出及模型返回的思考记录。</p>${detailMetrics(result.metrics,result.metrics_scope)}<p class="detail-note" id="session-page-note">本页 ${result.messages.length} 条记录，按时间顺序展示。</p>${result.children.length ? `<h3 class="detail-section-title">子会话</h3><div class="session-children">${result.children.map(child => `<button class="button small" data-action="session" data-id="${esc(child.id)}">${esc(child.title || child.id)} ${svg('open')}</button>`).join('')}</div>` : ''}<div id="session-more">${result.next ? `<button class="button small load-older" data-action="older-session" data-cursor="${esc(result.next)}">${svg('up')}加载更早消息</button>` : ''}</div><section id="session-messages">${content || empty('这个会话还没有消息')}</section>`;
+    } else $('#detail-content').innerHTML = `<div class="detail-toolbar">${state.detailJob ? `<button class="button small" data-action="back-job">${svg('back')}返回任务</button>` : ''}<span class="technical-id">${esc(id)}</span><button class="button small" data-action="session-export" data-id="${esc(id)}">导出会话</button>${result.managed ? `<button class="button small" data-action="session-model" data-id="${esc(id)}">模型与档位</button><button class="button small" data-action="session-rename" data-id="${esc(id)}">重命名</button><button class="button small" data-action="session-archive" data-id="${esc(id)}">${result.archived ? '恢复归档' : '归档'}</button>` : ''}</div><h3>${esc(result.title)}</h3>${sessionContext.render(id)}<p class="detail-note">历史会话按原始内容分页读取；包括系统记录、工具输入输出及模型返回的思考记录。</p>${detailMetrics(result.metrics,result.metrics_scope)}<p class="detail-note" id="session-page-note">本页 ${result.messages.length} 条记录，按时间顺序展示。</p>${result.children.length ? `<h3 class="detail-section-title">子会话</h3><div class="session-children">${result.children.map(child => `<button class="button small" data-action="session" data-id="${esc(child.id)}">${esc(child.title || child.id)} ${svg('open')}</button>`).join('')}</div>` : ''}<div id="session-more">${result.next ? `<button class="button small load-older" data-action="older-session" data-cursor="${esc(result.next)}">${svg('up')}加载更早消息</button>` : ''}</div><section id="session-messages">${content || empty('这个会话还没有消息')}</section>`;
     if (!cursor) await sessionContext.refresh();
   } catch (error) { if (state.auth && version === state.detailVersion) $('#detail-content').innerHTML = `<div class="notice">${esc(error.message)}</div>${state.detailJob ? '<button class="button" data-action="back-job">返回任务</button>' : ''}`; }
 }
@@ -340,7 +419,7 @@ async function refresh() {
   if (!state.auth || state.refreshing || state.restarting || document.hidden || $('#sidebar').classList.contains('open') || $('#action-dialog').open) return;
   state.refreshing = true;
   try {
-    if (state.view === 'conversations' && $('#conversation-search')) await conversations.refresh(); else if (state.view === 'knowledge') await knowledge.refresh(); else if (!['memories','sessions','knowledge'].includes(state.view) && !(state.view === 'queue' && state.queueHistory)) await navigate(state.view,true);
+    if (state.view === 'conversations' && $('#conversation-search')) await conversations.refresh(); else if (state.view === 'capabilities' && $('#capability-grid')) await refreshCapabilities(); else if (state.view === 'knowledge') await knowledge.refresh(); else if (!['memories','sessions','knowledge'].includes(state.view) && !(state.view === 'queue' && state.queueHistory)) await navigate(state.view,true);
     if (state.detailJob && !state.detailSession && state.detailData && unfinished.has(state.detailData.status)) await openJob(state.detailJob,true);
     await sessionContext.refresh();
   } catch { connected(false); }
@@ -350,17 +429,30 @@ uiRoot.addEventListener('click',async event => {
   const button = event.target.closest('[data-action]'); if (!button) return;
   const action = button.dataset.action;
   try {
+    if (await sessionTools.handleAction(action, button)) return;
     if (await sessionContext.handleAction(action, button)) return;
     if (await conversations.handleAction(action, button)) return;
     if (await knowledge.handleAction(action, button)) return;
     else if (action === 'navigate') { await navigate(button.dataset.view); }
     else if (action === 'refresh') { await navigate(state.view,true); }
+    else if (action === 'plugin-category') {
+      const category = button.dataset.category;
+      if (category !== 'all' && !Object.hasOwn(pluginCategories,category)) return;
+      state.pluginCategory = category;
+      const section = state.capabilityData?.sections.plugins;
+      if (section && $('#capability-plugins')) {
+        $('#capability-plugins').innerHTML = pluginRows(section.items,state.capabilityData);
+        $('#capability-plugins').scrollTop = 0;
+        uiRoot.querySelectorAll('.plugin-filter').forEach(node => node.setAttribute('aria-pressed',String(node.dataset.category === category)));
+      }
+    }
     else if (action === 'menu') setMenu(!$('#sidebar').classList.contains('open'));
     else if (action === 'close-menu') setMenu(false);
     else if (action === 'toggle-sidebar') toggleSidebar();
     else if (action === 'account') accountDialog();
     else if (action === 'mapping') await mappingDialog(button.dataset.id);
-    else if (action === 'fork-session') forkDialog(button);
+    else if (action === 'fork-session') await forkDialog(button);
+    else if (action === 'toggle-archives') { state.sessionArchived = !state.sessionArchived; button.textContent = state.sessionArchived ? '隐藏已归档' : '显示已归档'; button.setAttribute('aria-pressed',String(state.sessionArchived)); $('#session-rows').innerHTML = sessionRows(); }
     else if (action === 'logout') { await api('/auth/logout',{}); showLogin(); }
  else if (action === 'queue-mode') { state.queueHistory = !state.queueHistory; await navigate('queue',true); }
     else if (action === 'older-queue') {
@@ -392,8 +484,8 @@ function scheduleMemorySearch() {
     try { await fetchMemories(); if ($('#memory-results')) { keepDetails($('#memory-results'),memoryResults()); $('#memory-more').innerHTML = memoryMore(); $('#memory-count').textContent = `共 ${number(state.memoryTotal)} 条`; } } catch(error) { toast(error.message); }
   },300);
 }
-uiRoot.addEventListener('change',event => { if (knowledge.handleChange(event.target)) return; if (event.target.id === 'memory-kind') { state.memoryKind = event.target.value; scheduleMemorySearch(); } else if (event.target.id === 'memory-subject') { state.memorySubject = event.target.value; scheduleMemorySearch(); } });
-uiRoot.addEventListener('submit', event => { void knowledge.handleSubmit(event); });
+uiRoot.addEventListener('change',event => { if (sessionTools.handleChange(event.target)) return; if (knowledge.handleChange(event.target)) return; if (event.target.id === 'memory-kind') { state.memoryKind = event.target.value; scheduleMemorySearch(); } else if (event.target.id === 'memory-subject') { state.memorySubject = event.target.value; scheduleMemorySearch(); } });
+uiRoot.addEventListener('submit', event => { void knowledge.handleSubmit(event); void sessionTools.handleSubmit(event); });
 uiRoot.addEventListener('submit',async event => {
   if (!['login-form','account-form','mapping-form','fork-form'].includes(event.target.id)) return;
   event.preventDefault(); const form = event.target; const button = form.querySelector('[type=submit]'); button.disabled = true;
@@ -412,9 +504,9 @@ uiRoot.addEventListener('submit',async event => {
       $('#fork-error').textContent = '';
       const submit = form.querySelector('[type=submit]'); submit.disabled = true;
       try {
-        const result = await api(`/sessions/${encodeURIComponent(form.dataset.source)}/fork`, {conversation:form.dataset.conversation,expected_current:form.dataset.source,request_id:form.dataset.request,title:values.title || '',confirm:'fork'});
-        state.forkRequests.delete(`${form.dataset.conversation}:${form.dataset.source}`);
-        $('#action-dialog').close(); toast(result.switched ? '分支已创建，后续 QQ 任务将使用新分支' : result.message || '分支已存在，请刷新查看当前映射'); await navigate('conversations',true);
+        const result = await api(`/sessions/${encodeURIComponent(form.dataset.source)}/fork`, {conversation:form.dataset.conversation,expected_current:form.dataset.expected || null,before:form.dataset.before || null,request_id:form.dataset.request,title:values.title || '',confirm:'fork'});
+        state.forkRequests.delete(form.dataset.key);
+        $('#action-dialog').close(); if ($('#detail-dialog').open) $('#detail-dialog').close(); toast(result.switched ? '分支已创建，后续 QQ 任务将使用新分支' : result.message || '分支已存在，请刷新查看当前映射'); await navigate('conversations',true);
       } finally { submit.disabled = false; }
     } else {
       $('#account-error').textContent = '';

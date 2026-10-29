@@ -35,6 +35,18 @@ class ConsoleOpenCode:
         self.workdir = ""
         self.forks = []
         self.mutations = []
+        self.capabilities = {
+            path: []
+            for path in (
+                "/api/plugin",
+                "/api/mcp",
+                "/api/skill",
+                "/api/command",
+                "/api/agent",
+                "/api/websearch/provider",
+            )
+        }
+        self.config_documents = []
         self.models = [{"id": "test-model", "providerID": "test", "limit": {"context": 1000}}]
 
     def add(self, session_id, conversation=None, *, parent=None, archived=False):
@@ -78,8 +90,17 @@ class ConsoleOpenCode:
                 id=session_id, fork={"sessionID": source_id}, parentID=None, archived=False
             )
             self.messages[session_id] = json.loads(json.dumps(self.messages[source_id]))
+            if body.get("before"):
+                position = next(
+                    i for i, m in enumerate(self.messages[session_id]) if m["id"] == body["before"]
+                )
+                self.messages[session_id] = self.messages[session_id][:position]
             self.forks.append((source_id, session_id))
             return self.sessions[session_id]
+        if method == "POST" and path.endswith("/model"):
+            self.mutations.append((method, path, body))
+            self.sessions[path.split("/")[3]]["model"] = body["model"]
+            return None
         if method == "PATCH":
             self.mutations.append((method, path, body))
             self.sessions[path.split("/")[3]].update(body)
@@ -95,6 +116,19 @@ class ConsoleOpenCode:
             return self.compactions[body["id"]]
         assert method == "GET", "The console must not submit model work while reading."
         self.requests.append((method, path))
+        if path in self.capabilities:
+            return self.capabilities[path]
+        if path == "/api/config":
+            return self.config_documents
+        if path.startswith("/api/experimental/session/") and path.endswith("/export"):
+            session_id = path.split("/")[4]
+            return {"info": self.sessions[session_id], "messages": self.messages[session_id]}
+        if "/message/" in path:
+            session_id, message_id = path.split("/")[3], path.split("/")[5]
+            for message in self.messages[session_id]:
+                if message["id"] == message_id:
+                    return message
+            raise ApiError(404, "message")
         if path == "/api/model":
             return self.models
         if path == "/api/model/default":

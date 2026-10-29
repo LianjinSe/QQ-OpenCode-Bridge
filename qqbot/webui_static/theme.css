@@ -469,3 +469,28 @@
 #qqbot-console .knowledge-file-picker:focus-within { outline:2px solid var(--accent); outline-offset:3px; }
 #qqbot-console .knowledge-upload input.sr-only { width:1px; height:1px; min-height:0; padding:0; }
 #qqbot-console #knowledge-file-selection { overflow-wrap:anywhere; }
+#qqbot-console .session-row-actions{display:flex;flex-wrap:wrap;gap:8px 12px;min-width:170px;max-width:240px}
+#qqbot-console .message-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;padding-top:10px;border-top:1px solid var(--border)}
+#qqbot-console .capability-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;align-items:start}
+#qqbot-console .capability-list{list-style:none;margin:0;padding:0 20px;max-height:440px;overflow:auto;overscroll-behavior:contain}
+#qqbot-console .capability-item{padding:15px 0;border-bottom:1px solid var(--border);overflow-wrap:anywhere;min-width:0}
+#qqbot-console .capability-item:last-child{border-bottom:0}
+#qqbot-console .capability-item>div{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+#qqbot-console .capability-item strong{font-size:12px;font-weight:500;overflow-wrap:anywhere}
+#qqbot-console .capability-item p,#qqbot-console .capability-empty{font-size:11px;line-height:1.8;color:var(--muted)}
+#qqbot-console .capability-item p{margin:7px 0 0}
+#qqbot-console .capability-empty{padding:20px 0}
+#qqbot-console #session-model-form select,#qqbot-console #session-export-form select{width:100%;min-width:0;max-width:100%}
+@media(max-width:760px){#qqbot-console .capability-grid{grid-template-columns:minmax(0,1fr)}#qqbot-console .capability-list{max-height:360px}}
+@media(pointer:coarse){#qqbot-console .session-row-actions button,#qqbot-console .message-actions button{min-height:44px;touch-action:manipulation}#qqbot-console #session-model-form select,#qqbot-console #session-export-form select,#qqbot-console #session-properties-form input{font-size:16px}}
+#qqbot-console .context-session-title{font-size:11px;margin:5px 0 8px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#qqbot-console .plugin-filters{display:flex;flex-wrap:wrap;align-items:center;gap:7px;padding:0 20px 12px}
+#qqbot-console .plugin-filter{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:34px;padding:7px 11px;border:1px solid var(--border);border-radius:12px;background:var(--glass-reading);color:var(--muted);font:inherit;font-size:11px;cursor:pointer}
+#qqbot-console .plugin-filter span{font-size:10px;opacity:.78;font-variant-numeric:tabular-nums}
+#qqbot-console .plugin-filter[aria-pressed="true"]{color:var(--accent);background:rgba(53,108,165,.12);border-color:rgba(53,108,165,.4)}
+#qqbot-console .plugin-filter:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+#qqbot-console .plugin-group{list-style:none;padding:0;margin:0}
+#qqbot-console .plugin-group>h4{display:flex;justify-content:space-between;gap:12px;margin:0;padding:12px 0;font-size:11px;font-weight:500;color:var(--accent);border-bottom:1px solid var(--border)}
+#qqbot-console .plugin-group>h4 span{font-variant-numeric:tabular-nums;color:var(--muted)}
+#qqbot-console .plugin-group>ul{list-style:none;padding:0;margin:0}
+@media(pointer:coarse){#qqbot-console .plugin-filter{min-height:44px;touch-action:manipulation;user-select:none;-webkit-user-select:none}}
